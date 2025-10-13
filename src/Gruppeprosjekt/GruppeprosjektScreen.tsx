@@ -2,9 +2,12 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView } from 'react-native';
 
 
+  // GruppeprosjektScreen viser oversikt over oppgaver og navigasjon mellom faner.
+
   type TabType = 'Kalender' | 'Oppgaver' | 'Grupper' | 'Fokus' | 'Innstillinger';
 
   const GruppeprosjektScreen: React.FC = () => {
+    // selected holder styr på hvilken fane som er aktiv i bunnmenyen.
     const [selected, setSelected] = useState<TabType>('Oppgaver');
     return (
       <SafeAreaView style={styles.safe}>
