@@ -8,6 +8,7 @@ type RootStackParamList = {
   Login: undefined;
   Register: undefined;
   ForgotPassword: undefined;
+  Main: undefined;
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'>;
@@ -28,8 +29,16 @@ export default function LoginScreen() {
         <Text style={styles.forgot}>Glemt passord</Text>
       </TouchableOpacity>
 
-  {/* Logg inn-knapp: legg autentiseringslogikk i onPress */}
-      <TouchableOpacity style={styles.button}>
+      {/* Logg inn-knapp: legg autentiseringslogikk i onPress */}
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => {
+          // Her bør du validere brukernavn/passord. Når innlogging er vellykket,
+          // bytt til hoved-appen. replace fjerner login fra stack slik at brukeren
+          // ikke kan gå tilbake med fysisk tilbake-knapp.
+          navigation.replace('Main');
+        }}
+      >
         <Text style={styles.buttonText}>Logg inn</Text>
       </TouchableOpacity>
 

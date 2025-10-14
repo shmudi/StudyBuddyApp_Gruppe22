@@ -3,34 +3,27 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-// Registrering
+// Glemt passord
 type RootStackParamList = {
   Login: undefined;
-  Register: undefined;
+  ForgotPassword: undefined;
 };
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Register'>;
+type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'ForgotPassword'>;
 
-export default function RegisterScreen() {
+export default function ForgotPasswordScreen() {
   const navigation = useNavigation<NavigationProp>();
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Registrer</Text>
+      <Text style={styles.title}>Glemt passord</Text>
 
-  {/* Fullt navn: valgfritt */}
-      <TextInput placeholder="Fullt navn" style={styles.input} />
-  {/* E-post: vis e-posttastatur */}
+      <Text style={styles.info}>Skriv inn e-posten din for å motta instruksjoner for å tilbakestille passordet.</Text>
       <TextInput placeholder="E-post" style={styles.input} keyboardType="email-address" />
-      <TextInput placeholder="Brukernavn" style={styles.input} />
-      {/* Passord: secureTextEntry skjuler tegnene */}
-      <TextInput placeholder="Passord" secureTextEntry style={styles.input} />
 
-  {/* Opprett konto: legg validering/API-kall i onPress */}
       <TouchableOpacity style={styles.button}>
-        <Text style={styles.buttonText}>Opprett konto</Text>
+        <Text style={styles.buttonText}>Send e-post</Text>
       </TouchableOpacity>
 
-  {/* Tilbake til innlogging */}
       <TouchableOpacity onPress={() => navigation.goBack()}>
         <Text style={styles.back}>Tilbake til innlogging</Text>
       </TouchableOpacity>
@@ -50,6 +43,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
     marginBottom: 24,
+  },
+  info: {
+    fontSize: 14,
+    color: '#444',
+    marginBottom: 12,
+    textAlign: 'center',
   },
   input: {
     height: 44,

@@ -25,6 +25,7 @@ export default function TabNavigator() {
         tabBarInactiveTintColor: colors.muted,
         tabBarStyle: { backgroundColor: '#fff' },
         tabBarIcon: ({ color, size }: { color: string; size: number }) => {
+          
           if (route.name === 'Kalender') return <Ionicons name="calendar" size={size} color={color} />;
           if (route.name === 'Oppgaver') return <MaterialCommunityIcons name="format-list-bulleted" size={size} color={color} />;
           if (route.name === 'Fokus') return <Ionicons name="timer" size={size} color={color} />;

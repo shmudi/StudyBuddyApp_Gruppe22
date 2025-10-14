@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo, useState } from 'react';
 import { FlatList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { colors } from '../theme/colors'; // sørg for at bg, card, border, text, gold, goldSoft, muted finnes her
+import { colors } from '../theme/colors';
+
+
 
 const WEEKDAYS = ['M', 'T', 'O', 'T', 'F', 'L', 'S'];
 
