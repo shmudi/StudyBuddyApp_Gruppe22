@@ -98,8 +98,8 @@ export default function CalendarScreen() {
 
       {/* Ukedager (statisk rad, monospaced-ish layout) */}
       <View style={styles.weekRow}>
-        {WEEKDAYS.map(d => (
-          <Text key={d} style={styles.weekday}>
+        {WEEKDAYS.map((d, i) => (
+          <Text key={`${d}-${i}`} style={styles.weekday}>
             {d}
           </Text>
         ))}
