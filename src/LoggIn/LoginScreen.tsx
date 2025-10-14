@@ -12,7 +12,11 @@ type RootStackParamList = {
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'>;
 
-export default function LoginScreen() {
+type LoginScreenProps = {
+  onLogin?: () => void;
+};
+
+export default function LoginScreen({ onLogin }: LoginScreenProps) {
   const navigation = useNavigation<NavigationProp>();
   return (
     <View style={styles.container}>
@@ -29,7 +33,7 @@ export default function LoginScreen() {
       </TouchableOpacity>
 
   {/* Logg inn-knapp: legg autentiseringslogikk i onPress */}
-      <TouchableOpacity style={styles.button}>
+      <TouchableOpacity style={styles.button} onPress={onLogin}>
         <Text style={styles.buttonText}>Logg inn</Text>
       </TouchableOpacity>
 

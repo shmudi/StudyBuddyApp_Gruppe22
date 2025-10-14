@@ -1,10 +1,9 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import React from 'react';
-import Ionicons from 'react-native-vector-icons/Ionicons';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import CalendarScreen from '../screens/CalendarScreen';
 import FocusModeScreen from '../screens/FocusModeScreen';
-import GroupsScreen from '../screens/GroupsScreen';
+import GruppeprosjektScreen from '../Gruppeprosjekt/GruppeprosjektScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import TasksScreen from '../screens/TasksScreen';
 
@@ -36,7 +35,7 @@ export default function TabNavigator() {
     >
       <Tab.Screen name="Kalender" component={CalendarScreen} />
       <Tab.Screen name="Oppgaver" component={TasksScreen} />
-      <Tab.Screen name="Grupper" component={GroupsScreen} />
+  <Tab.Screen name="Grupper" component={GruppeprosjektScreen} />
       <Tab.Screen name="Fokus" component={FocusModeScreen} />
       <Tab.Screen name="Innstillinger" component={SettingsScreen} />
 
