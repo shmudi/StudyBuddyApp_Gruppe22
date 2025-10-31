@@ -1,30 +1,21 @@
-import React from 'react';
-import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { Alert, Image, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { colors } from '../theme/colors';
 
 export default function SettingsScreen() {
   const { logout, userProfile } = useAuth();
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const handleLogout = async () => {
-    Alert.alert(
-      'Logg ut',
-      'Er du sikker på at du vil logge ut?',
-      [
-        { text: 'Avbryt', style: 'cancel' },
-        { 
-          text: 'Logg ut', 
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await logout();
-            } catch (error) {
-              Alert.alert('Feil', 'Kunne ikke logge ut. Prøv igjen.');
-            }
-          }
-        }
-      ]
-    );
+    setLoggingOut(true);
+    try {
+      await logout();
+      // Navigation skjer automatisk via AuthContext
+    } catch (error) {
+      setLoggingOut(false);
+      console.error('Logout feil:', error);
+    }
   };
 
   return (
@@ -39,8 +30,19 @@ export default function SettingsScreen() {
         )}
       </View>
       
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutText}>Logg ut</Text>
+      <TouchableOpacity 
+        style={[styles.logoutButton, loggingOut && styles.logoutButtonDisabled]} 
+        onPress={handleLogout}
+        disabled={loggingOut}
+      >
+        {loggingOut ? (
+          <View style={styles.logoutContent}>
+            <ActivityIndicator size="small" color={colors.white} style={{ marginRight: 8 }} />
+            <Text style={styles.logoutText}>Logger ut...</Text>
+          </View>
+        ) : (
+          <Text style={styles.logoutText}>Logg ut</Text>
+        )}
       </TouchableOpacity>
     </View>
   );
@@ -79,6 +81,13 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 40,
     borderRadius: 30,
+  },
+  logoutButtonDisabled: {
+    opacity: 0.6,
+  },
+  logoutContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   logoutText: {
     color: colors.white,

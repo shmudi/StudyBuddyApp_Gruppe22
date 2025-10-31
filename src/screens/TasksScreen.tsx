@@ -13,21 +13,62 @@ import { useAuth } from "../contexts/AuthContext";
 import { Task, TaskService } from "../services/tasks";
 import { colors } from "../theme/colors";
 
+// Fallback sample data hvis Firebase ikke fungerer
+const SAMPLE_TASKS: Task[] = [
+  { 
+    id: '1', 
+    title: 'Les kapittel 5', 
+    course: 'React Native', 
+    due: '2025-11-01', 
+    done: false, 
+    userId: 'sample',
+    createdAt: new Date(),
+    updatedAt: new Date()
+  },
+  { 
+    id: '2', 
+    title: 'Øv på TypeScript', 
+    course: 'Programmering', 
+    due: '2025-11-03', 
+    done: true, 
+    userId: 'sample',
+    createdAt: new Date(),
+    updatedAt: new Date()
+  },
+  { 
+    id: '3', 
+    title: 'Lag Firebase app', 
+    course: 'Backend', 
+    due: '2025-11-05', 
+    done: false, 
+    userId: 'sample',
+    createdAt: new Date(),
+    updatedAt: new Date()
+  },
+];
+
 export default function TasksScreen() {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [useLocalData, setUseLocalData] = useState(false);
 
-  // Hent oppgaver fra Firebase
+  // Hent oppgaver fra Firebase med fallback til local data
   const loadTasks = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      setTasks(SAMPLE_TASKS);
+      setLoading(false);
+      return;
+    }
     
     try {
       const userTasks = await TaskService.getUserTasks(user.uid);
       setTasks(userTasks);
+      setUseLocalData(false);
     } catch (error) {
-      Alert.alert('Feil', 'Kunne ikke hente oppgaver');
-      console.error('Error loading tasks:', error);
+      console.warn('Firebase feil, bruker local data:', error);
+      setTasks(SAMPLE_TASKS);
+      setUseLocalData(true);
     } finally {
       setLoading(false);
     }
@@ -45,9 +86,16 @@ export default function TasksScreen() {
   }, [tasks]);
 
   const toggleTask = async (id: string, currentDone: boolean) => {
+    if (useLocalData) {
+      // Lokal oppdatering hvis Firebase ikke fungerer
+      setTasks((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, done: !currentDone } : t))
+      );
+      return;
+    }
+
     try {
       await TaskService.toggleTask(id, !currentDone);
-      // Oppdater lokal state
       setTasks((prev) =>
         prev.map((t) => (t.id === id ? { ...t, done: !currentDone } : t))
       );
@@ -57,17 +105,30 @@ export default function TasksScreen() {
   };
 
   const createSampleTask = async () => {
-    if (!user) return;
+    const sampleTasks = [
+      { title: "Les kapittel 6", course: "React Native", due: "2025-11-02" },
+      { title: "Lær Hooks", course: "React", due: "2025-11-04" },
+      { title: "Test Firebase", course: "Backend", due: "2025-11-06" }
+    ];
+    
+    const randomTask = sampleTasks[Math.floor(Math.random() * sampleTasks.length)];
+    
+    if (useLocalData || !user) {
+      // Lokal opprettelse hvis Firebase ikke fungerer
+      const newTask: Task = {
+        id: Date.now().toString(),
+        ...randomTask,
+        done: false,
+        userId: user?.uid || 'sample',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      setTasks(prev => [...prev, newTask]);
+      Alert.alert('Suksess', 'Ny oppgave lagt til lokalt!');
+      return;
+    }
     
     try {
-      const sampleTasks = [
-        { title: "Les kapittel 5", course: "React Native", due: "2025-11-01" },
-        { title: "Øv på TypeScript", course: "Programmering", due: "2025-11-03" },
-        { title: "Lag Firebase app", course: "Backend", due: "2025-11-05" }
-      ];
-      
-      const randomTask = sampleTasks[Math.floor(Math.random() * sampleTasks.length)];
-      
       await TaskService.createTask(user.uid, randomTask);
       await loadTasks(); // Refresh listen
       Alert.alert('Suksess', 'Ny oppgave lagt til!');
