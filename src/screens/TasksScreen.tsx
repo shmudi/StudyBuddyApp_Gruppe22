@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   FlatList,
   StyleSheet,
   Text,
@@ -8,40 +9,82 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from "../contexts/AuthContext";
+import { Task, TaskService } from "../services/tasks";
 import { colors } from "../theme/colors";
 
-// Alpha = bare UI og lokal state for nå
-type Task = {
-  id: string;
-  title: string;
-  course?: string;
-  due?: string;
-  done: boolean;
-};
-
-// Dummy-data for nå
-const INITIAL_TASKS: Task[] = [
-  { id: "1", title: "Arbeidskrav 3 - Diskret matte", course: "Diskret matte", due: "2025-10-01", done: false },
-  { id: "2", title: "Prosjektoppgave - Software Engineering", course: "SE og testing", due: "2025-10-05", done: true },
-  { id: "3", title: "Oblig 2 - Operativsystemer", course: "Operativsystemer", due: "2025-10-03", done: false },
-];
-
 export default function TasksScreen() {
-  const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
+  const { user } = useAuth();
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Teller hvor mange som er fullført – bruker useMemo for å unngå unødvendige re-renders
-  // Ref: https://react.dev/reference/react/useMemo
+  // Hent oppgaver fra Firebase
+  const loadTasks = useCallback(async () => {
+    if (!user) return;
+    
+    try {
+      const userTasks = await TaskService.getUserTasks(user.uid);
+      setTasks(userTasks);
+    } catch (error) {
+      Alert.alert('Feil', 'Kunne ikke hente oppgaver');
+      console.error('Error loading tasks:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    loadTasks();
+  }, [loadTasks]);
+
+  // Teller hvor mange som er fullført
   const { completed, total } = useMemo(() => {
     const total = tasks.length || 1;
     const completed = tasks.filter((t) => t.done).length;
     return { completed, total };
   }, [tasks]);
 
-  const toggleTask = (id: string) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t))
-    );
+  const toggleTask = async (id: string, currentDone: boolean) => {
+    try {
+      await TaskService.toggleTask(id, !currentDone);
+      // Oppdater lokal state
+      setTasks((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, done: !currentDone } : t))
+      );
+    } catch (error) {
+      Alert.alert('Feil', 'Kunne ikke oppdatere oppgave');
+    }
   };
+
+  const createSampleTask = async () => {
+    if (!user) return;
+    
+    try {
+      const sampleTasks = [
+        { title: "Les kapittel 5", course: "React Native", due: "2025-11-01" },
+        { title: "Øv på TypeScript", course: "Programmering", due: "2025-11-03" },
+        { title: "Lag Firebase app", course: "Backend", due: "2025-11-05" }
+      ];
+      
+      const randomTask = sampleTasks[Math.floor(Math.random() * sampleTasks.length)];
+      
+      await TaskService.createTask(user.uid, randomTask);
+      await loadTasks(); // Refresh listen
+      Alert.alert('Suksess', 'Ny oppgave lagt til!');
+    } catch (error) {
+      Alert.alert('Feil', 'Kunne ikke opprette oppgave');
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+          <Text>Laster oppgaver...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -51,26 +94,26 @@ export default function TasksScreen() {
           {completed}/{total} fullført
         </Text>
 
-        {/* FlatList brukes for effektiv rendering av oppgaveliste
-            Ref: https://reactnative.dev/docs/flatlist */}
         <FlatList
           data={tasks}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           renderItem={({ item }) => (
-            <TaskCard task={item} onToggle={() => toggleTask(item.id)} />
+            <TaskCard task={item} onToggle={() => toggleTask(item.id, item.done)} />
+          )}
+          ListEmptyComponent={() => (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>Ingen oppgaver ennå</Text>
+              <Text style={styles.emptySubtext}>Trykk + for å legge til en oppgave</Text>
+            </View>
           )}
         />
 
-        {/* Ionicons fra Expo for "legg til"-ikon */}
-        {/* Ref: https://docs.expo.dev/guides/icons/ */}
         <TouchableOpacity
           style={styles.fab}
           activeOpacity={0.85}
-          onPress={() => {
-            // TODO Beta: åpne modal for ny oppgave
-          }}
+          onPress={createSampleTask}
           accessibilityLabel="Legg til oppgave"
         >
           <Ionicons name="add" size={28} color={colors.text} />
@@ -138,6 +181,21 @@ const styles = StyleSheet.create({
   },
   listContent: { paddingHorizontal: 16, paddingBottom: 16 },
   separator: { height: 10 },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 18,
+    color: colors.muted,
+    fontWeight: '600',
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: colors.subtext,
+    marginTop: 4,
+  },
   card: {
     flexDirection: "row",
     alignItems: "center",
