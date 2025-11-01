@@ -129,13 +129,13 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     alignItems: "center",
-    paddingVertical: 30,
-    paddingBottom: 30,
+    paddingVertical: 40,
+    paddingBottom: 80, // ekstra luft nederst
   },
   profileSection: {
     alignItems: "center",
-    marginTop: 30,
-    marginBottom: 20,
+    marginTop: 40,
+    marginBottom: 30,
   },
   profileImage: {
     width: 100,
@@ -171,10 +171,10 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     paddingVertical: 14,
-    paddingHorizontal: 30,
+    paddingHorizontal: 40,
     borderRadius: 30,
-    marginTop: 10,
-    marginBottom: 20, 
+    marginTop: 40,
+    marginBottom: 50, // luft før app-info
     alignSelf: "center",
   },
   logoutContent: {

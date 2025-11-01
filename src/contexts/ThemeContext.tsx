@@ -21,12 +21,13 @@ const ThemeContext = createContext<ThemeContextType>({} as ThemeContextType);
 
 const lightColors = {
   background: "#FFFFFF",
-  text: "#111111",
+  text: "#000000ff",
   card: "#F7F7F7",
   border: "#E5E7EB",
   muted: "#6B7280",
   accent: "#EAB308", // varmere gull (amber-500)
   error: "#EF4444",
+
 };
 
 // En mykere, mer behagelig "slate"-palett for dark mode

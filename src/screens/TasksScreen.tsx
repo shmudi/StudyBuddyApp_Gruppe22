@@ -267,12 +267,12 @@ export default function TasksScreen() {
                     onChange={(e) => setNewDue(((e as any).target?.value ?? (e as any).currentTarget?.value) ?? '')}
                   style={{
                     borderWidth: 1,
-                    borderColor: theme === 'light' ? '#333' : themeColors.border,
+                    borderColor: themeColors.border,
                     borderRadius: 10,
                     padding: 10,
                     marginBottom: 10,
-                    color: theme === 'light' ? '#fff' : themeColors.text,
-                    backgroundColor: theme === 'light' ? '#000' : themeColors.card,
+                    color: themeColors.text,
+                    backgroundColor: themeColors.card,
                     fontSize: 16,
                     width: "100%",
                   }}
@@ -284,10 +284,9 @@ export default function TasksScreen() {
                     style={[
                       styles.input,
                       { justifyContent: "center" },
-                      theme === 'light' && { backgroundColor: '#000', borderColor: '#333' },
                     ]}
                   >
-                    <Text style={{ color: theme === 'light' ? '#fff' : (newDue ? themeColors.text : themeColors.muted) }}>
+                    <Text style={{ color: newDue ? themeColors.text : themeColors.muted }}>
                       {newDue ? `Frist: ${newDue}` : "Velg fristdato"}
                     </Text>
                   </TouchableOpacity>
@@ -296,13 +295,18 @@ export default function TasksScreen() {
                     <DateTimePicker
                       value={selectedDate || new Date()}
                       mode="date"
-                      display={Platform.OS === "ios" ? "spinner" : "calendar"}
-                      {...(Platform.OS === 'ios' ? { themeVariant: theme === 'dark' ? 'dark' : 'light' } : {})}
+                      display={Platform.OS === 'ios' ? 'spinner' : 'calendar'}
+                      {...(Platform.OS === 'ios'
+                        ? {
+                            themeVariant: theme === 'dark' ? 'dark' : 'light',
+                            textColor: theme === 'dark' ? '#fff' : '#111',
+                          }
+                        : {})}
                       onChange={(event: any, date?: Date) => {
                         setShowDatePicker(false);
                         if (date) {
                           setSelectedDate(date);
-                          const isoDate = date.toISOString().split("T")[0];
+                          const isoDate = date.toISOString().split('T')[0];
                           setNewDue(isoDate);
                         }
                       }}
