@@ -38,7 +38,7 @@ const SAMPLE_TASKS: Task[] = [
 
 export default function TasksScreen() {
   const { user } = useAuth();
-  const { colors: themeColors } = useTheme();
+  const { theme, colors: themeColors } = useTheme();
   const styles = useMemo(() => makeStyles(themeColors), [themeColors]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -222,7 +222,7 @@ export default function TasksScreen() {
           )}
         />
 
-        {/* 🔹 Knapp for å åpne modal */}
+        {/* Knapp for å åpne modal */}
         <TouchableOpacity
           style={styles.fab}
           activeOpacity={0.85}
@@ -267,12 +267,12 @@ export default function TasksScreen() {
                     onChange={(e) => setNewDue(((e as any).target?.value ?? (e as any).currentTarget?.value) ?? '')}
                   style={{
                     borderWidth: 1,
-                    borderColor: themeColors.border,
+                    borderColor: theme === 'light' ? '#333' : themeColors.border,
                     borderRadius: 10,
                     padding: 10,
                     marginBottom: 10,
-                    color: themeColors.text,
-                    backgroundColor: themeColors.card,
+                    color: theme === 'light' ? '#fff' : themeColors.text,
+                    backgroundColor: theme === 'light' ? '#000' : themeColors.card,
                     fontSize: 16,
                     width: "100%",
                   }}
@@ -281,9 +281,13 @@ export default function TasksScreen() {
                 <>
                   <TouchableOpacity
                     onPress={() => setShowDatePicker(true)}
-                    style={[styles.input, { justifyContent: "center" }]}
+                    style={[
+                      styles.input,
+                      { justifyContent: "center" },
+                      theme === 'light' && { backgroundColor: '#000', borderColor: '#333' },
+                    ]}
                   >
-                    <Text style={{ color: newDue ? themeColors.text : themeColors.muted }}>
+                    <Text style={{ color: theme === 'light' ? '#fff' : (newDue ? themeColors.text : themeColors.muted) }}>
                       {newDue ? `Frist: ${newDue}` : "Velg fristdato"}
                     </Text>
                   </TouchableOpacity>
@@ -293,6 +297,7 @@ export default function TasksScreen() {
                       value={selectedDate || new Date()}
                       mode="date"
                       display={Platform.OS === "ios" ? "spinner" : "calendar"}
+                      {...(Platform.OS === 'ios' ? { themeVariant: theme === 'dark' ? 'dark' : 'light' } : {})}
                       onChange={(event: any, date?: Date) => {
                         setShowDatePicker(false);
                         if (date) {
@@ -420,7 +425,7 @@ const makeStyles = (theme: any) =>
         android: { elevation: 5 },
       }),
     },
-    // 🔹 Modal styles
+    // Modal styles
     modalOverlay: {
       flex: 1,
       backgroundColor: "rgba(0,0,0,0.4)",
