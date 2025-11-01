@@ -1,14 +1,15 @@
-import { 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
-  getDocs, 
-  query, 
-  where, 
-  orderBy, 
-  Timestamp 
+import { FirebaseError } from 'firebase/app';
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  orderBy,
+  query,
+  Timestamp,
+  updateDoc,
+  where
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
@@ -56,6 +57,28 @@ export class TaskService {
       
       return tasks;
     } catch (error) {
+      // Fallback: mangler indeks (failed-precondition) -> hent uten orderBy og sorter i klient
+      if (error instanceof FirebaseError && error.code === 'failed-precondition') {
+        console.warn(
+          'Firestore: Mangler sammensatt indeks for (userId asc, createdAt desc). Bruker fallback uten indeks og sorterer i klient. Opprett indeksen i Firebase Console for best ytelse.'
+        );
+        const tasksRef = collection(db, 'tasks');
+        const qNoIndex = query(tasksRef, where('userId', '==', userId));
+        const snap = await getDocs(qNoIndex);
+        const tasks: Task[] = [];
+        snap.forEach((doc) => {
+          const data = doc.data();
+          tasks.push({
+            id: doc.id,
+            ...data,
+            createdAt: data.createdAt.toDate(),
+            updatedAt: data.updatedAt.toDate(),
+          } as Task);
+        });
+        // Sorter nyligste først
+        tasks.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        return tasks;
+      }
       console.error('Feil ved henting av oppgaver:', error);
       throw new Error('Kunne ikke hente oppgaver');
     }
