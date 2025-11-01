@@ -1,12 +1,12 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import React from 'react';
-import Ionicons from 'react-native-vector-icons/Ionicons';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import CalendarScreen from '../screens/CalendarScreen';
 import FocusModeScreen from '../screens/FocusModeScreen';
 import GroupsScreen from '../screens/GroupsScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import TasksScreen from '../screens/TasksScreen';
+import { useTheme } from '../contexts/ThemeContext';
 
 
 const colors = {
@@ -14,17 +14,29 @@ const colors = {
   muted: '#888888',
 };
 
-const Tab = createBottomTabNavigator();
+type RootTabParamList = {
+  Kalender: undefined;
+  Oppgaver: undefined;
+  Grupper: undefined;
+  Fokus: undefined;
+  Innstillinger: undefined;
+};
+
+const Tab = createBottomTabNavigator<RootTabParamList>();
 
 export default function TabNavigator() {
+  const { colors: themeColors } = useTheme();
   return (
     <Tab.Navigator
-      screenOptions={({ route }: { route: { name: string } }) => ({
+      screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: colors.gold,
-        tabBarInactiveTintColor: colors.muted,
-        tabBarStyle: { backgroundColor: '#fff' },
-        tabBarIcon: ({ color, size }: { color: string; size: number }) => {
+        tabBarActiveTintColor: themeColors.accent,
+        tabBarInactiveTintColor: themeColors.muted,
+        tabBarStyle: {
+          backgroundColor: themeColors.card,
+          borderTopColor: themeColors.border,
+        },
+        tabBarIcon: ({ color, size }) => {
           
           if (route.name === 'Kalender') return <Ionicons name="calendar" size={size} color={color} />;
           if (route.name === 'Oppgaver') return <MaterialCommunityIcons name="format-list-bulleted" size={size} color={color} />;

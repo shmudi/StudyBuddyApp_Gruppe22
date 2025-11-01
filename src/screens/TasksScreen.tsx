@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import DateTimePicker from "@react-native-community/datetimepicker"; // Kalender-velger
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -14,8 +13,14 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../contexts/AuthContext";
+import { useTheme } from "../contexts/ThemeContext";
 import { Task, TaskService } from "../services/tasks";
-import { colors } from "../theme/colors";
+// Importer DateTimePicker kun på native for å unngå web-bundle issues
+let DateTimePicker: any = null;
+if (Platform.OS !== "web") {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  DateTimePicker = require("@react-native-community/datetimepicker").default;
+}
 
 // Fallback sample data hvis Firebase ikke fungerer
 const SAMPLE_TASKS: Task[] = [
@@ -33,6 +38,8 @@ const SAMPLE_TASKS: Task[] = [
 
 export default function TasksScreen() {
   const { user } = useAuth();
+  const { colors: themeColors } = useTheme();
+  const styles = useMemo(() => makeStyles(themeColors), [themeColors]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [useLocalData, setUseLocalData] = useState(false);
@@ -139,13 +146,48 @@ export default function TasksScreen() {
     }
   };
 
+  // Lokal komponent så den kan bruke styles og themeColors fra closure
+  function TaskCard({ task, onToggle, onDelete }: any) {
+    return (
+      <View style={styles.card}>
+        <TouchableOpacity
+          onPress={onToggle}
+          style={styles.check}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: task.done }}
+        >
+          <View style={[styles.checkOuter, task.done && styles.checkOuterOn]}>
+            {task.done && <View style={styles.checkInner} />}
+          </View>
+        </TouchableOpacity>
+
+        <View style={styles.cardTextWrap}>
+          <Text style={[styles.cardTitle, task.done && styles.cardTitleDone]}>
+            {task.title}
+          </Text>
+          {!!(task.course || task.due) && (
+            <Text style={styles.cardSubtitle}>
+              {task.course ? `${task.course}` : ""}
+              {task.course && task.due ? "  •  " : ""}
+              {task.due ? `Frist: ${task.due}` : ""}
+            </Text>
+          )}
+        </View>
+
+        <TouchableOpacity onPress={onDelete}>
+          <Ionicons name="trash-outline" size={20} color={themeColors.muted} />
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   if (loading) {
     return (
       <SafeAreaView style={styles.safe}>
         <View
           style={[styles.container, { justifyContent: "center", alignItems: "center" }]}
         >
-          <Text>Laster oppgaver...</Text>
+          <Text style={{ color: themeColors.muted }}>Laster oppgaver...</Text>
         </View>
       </SafeAreaView>
     );
@@ -187,7 +229,7 @@ export default function TasksScreen() {
           onPress={() => setModalVisible(true)}
           accessibilityLabel="Legg til oppgave"
         >
-          <Ionicons name="add" size={28} color={colors.text} />
+          <Ionicons name="add" size={28} color={'#111'} />
         </TouchableOpacity>
 
         {/* Modal for å legge til oppgave */}
@@ -198,19 +240,19 @@ export default function TasksScreen() {
           onRequestClose={() => setModalVisible(false)}
         >
           <View style={styles.modalOverlay}>
-            <View style={styles.modalContainer}>
+            <View style={[styles.modalContainer, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
               <Text style={styles.modalTitle}>Ny oppgave</Text>
 
               <TextInput
                 placeholder="Tittel"
-                placeholderTextColor={colors.subtext}
+                placeholderTextColor={themeColors.muted}
                 style={styles.input}
                 value={newTitle}
                 onChangeText={setNewTitle}
               />
               <TextInput
                 placeholder="Fag (valgfritt)"
-                placeholderTextColor={colors.subtext}
+                placeholderTextColor={themeColors.muted}
                 style={styles.input}
                 value={newCourse}
                 onChangeText={setNewCourse}
@@ -225,12 +267,12 @@ export default function TasksScreen() {
                     onChange={(e) => setNewDue(((e as any).target?.value ?? (e as any).currentTarget?.value) ?? '')}
                   style={{
                     borderWidth: 1,
-                    borderColor: colors.border,
+                    borderColor: themeColors.border,
                     borderRadius: 10,
                     padding: 10,
                     marginBottom: 10,
-                    color: colors.text,
-                    backgroundColor: "white",
+                    color: themeColors.text,
+                    backgroundColor: themeColors.card,
                     fontSize: 16,
                     width: "100%",
                   }}
@@ -241,17 +283,17 @@ export default function TasksScreen() {
                     onPress={() => setShowDatePicker(true)}
                     style={[styles.input, { justifyContent: "center" }]}
                   >
-                    <Text style={{ color: newDue ? colors.text : colors.subtext }}>
+                    <Text style={{ color: newDue ? themeColors.text : themeColors.muted }}>
                       {newDue ? `Frist: ${newDue}` : "Velg fristdato"}
                     </Text>
                   </TouchableOpacity>
 
-                  {showDatePicker && (
+                  {showDatePicker && DateTimePicker && (
                     <DateTimePicker
                       value={selectedDate || new Date()}
                       mode="date"
                       display={Platform.OS === "ios" ? "spinner" : "calendar"}
-                      onChange={(event, date) => {
+                      onChange={(event: any, date?: Date) => {
                         setShowDatePicker(false);
                         if (date) {
                           setSelectedDate(date);
@@ -286,178 +328,147 @@ export default function TasksScreen() {
   );
 }
 
-function TaskCard({ task, onToggle, onDelete }: any) {
-  return (
-    <View style={styles.card}>
-      {/* TouchableOpacity brukes for trykkbare elementer (checkbox) */}
-      <TouchableOpacity
-        onPress={onToggle}
-        style={styles.check}
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: task.done }}
-      >
-        <View style={[styles.checkOuter, task.done && styles.checkOuterOn]}>
-          {task.done && <View style={styles.checkInner} />}
-        </View>
-      </TouchableOpacity>
+// (TaskCard er flyttet inn i komponenten over)
 
-      <View style={styles.cardTextWrap}>
-        <Text style={[styles.cardTitle, task.done && styles.cardTitleDone]}>
-          {task.title}
-        </Text>
-        {!!(task.course || task.due) && (
-          <Text style={styles.cardSubtitle}>
-            {task.course ? `${task.course}` : ""}
-            {task.course && task.due ? "  •  " : ""}
-            {task.due ? `Frist: ${task.due}` : ""}
-          </Text>
-        )}
-      </View>
-
-      {/* Slett-knapp */}
-      <TouchableOpacity onPress={onDelete}>
-        <Ionicons name="trash-outline" size={20} color={colors.subtext} />
-      </TouchableOpacity>
-    </View>
-  );
-}
-
-// Styles //
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bg },
-  container: { flex: 1, backgroundColor: colors.bg },
-  title: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: colors.text,
-    paddingHorizontal: 20,
-    paddingTop: 8,
-  },
-  subTitle: {
-    fontSize: 13,
-    color: colors.subtext,
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-    marginTop: 2,
-  },
-  listContent: { paddingHorizontal: 16, paddingBottom: 16 },
-  separator: { height: 10 },
-  emptyContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 40,
-  },
-  emptyText: {
-    fontSize: 18,
-    color: colors.muted,
-    fontWeight: "600",
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: colors.subtext,
-    marginTop: 4,
-  },
-  card: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: colors.card,
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  check: { marginRight: 12 },
-  checkOuter: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    borderColor: colors.subtext,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#fff",
-  },
-  checkOuterOn: { borderColor: colors.accent, backgroundColor: "#fff7d6" },
-  checkInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: colors.accent,
-  },
-  cardTextWrap: { flex: 1, marginRight: 8 },
-  cardTitle: { fontSize: 16, color: colors.text, fontWeight: "600" },
-  cardTitleDone: { textDecorationLine: "line-through", color: colors.subtext },
-  cardSubtitle: { marginTop: 2, fontSize: 13, color: colors.subtext },
-  fab: {
-    position: "absolute",
-    right: 20,
-    bottom: 26,
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: colors.accent,
-    alignItems: "center",
-    justifyContent: "center",
-    ...Platform.select({
-      web: { boxShadow: "0 4px 12px rgba(0,0,0,0.15)" },
-      ios: {
-        shadowColor: "#000",
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 4 },
-      },
-      android: { elevation: 5 },
-    }),
-  },
-
-  // 🔹 Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalContainer: {
-    width: "85%",
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 20,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 10,
-    color: colors.text,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 10,
-    color: colors.text,
-  },
-  modalButtons: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    marginTop: 10,
-  },
-  modalBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginLeft: 8,
-  },
-  cancelBtn: {
-    backgroundColor: colors.border,
-  },
-  saveBtn: {
-    backgroundColor: colors.accent,
-  },
-  modalBtnText: {
-    fontWeight: "700",
-    color: colors.text,
-  },
-});
+// Styles avledet fra aktivt tema
+const makeStyles = (theme: any) =>
+  StyleSheet.create({
+    safe: { flex: 1, backgroundColor: theme.background },
+    container: { flex: 1, backgroundColor: theme.background },
+    title: {
+      fontSize: 28,
+      fontWeight: "800",
+      color: theme.text,
+      paddingHorizontal: 20,
+      paddingTop: 8,
+    },
+    subTitle: {
+      fontSize: 13,
+      color: theme.muted,
+      paddingHorizontal: 20,
+      paddingBottom: 12,
+      marginTop: 2,
+    },
+    listContent: { paddingHorizontal: 16, paddingBottom: 16 },
+    separator: { height: 10 },
+    emptyContainer: {
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 40,
+    },
+    emptyText: {
+      fontSize: 18,
+      color: theme.muted,
+      fontWeight: "600",
+    },
+    emptySubtext: {
+      fontSize: 14,
+      color: theme.muted,
+      marginTop: 4,
+    },
+    card: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      backgroundColor: theme.card,
+      borderRadius: 14,
+      paddingVertical: 14,
+      paddingHorizontal: 14,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    check: { marginRight: 12 },
+    checkOuter: {
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      borderWidth: 2,
+      borderColor: theme.muted,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.card,
+    },
+    checkOuterOn: { borderColor: theme.accent, backgroundColor: theme.card },
+    checkInner: {
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+      backgroundColor: theme.accent,
+    },
+    cardTextWrap: { flex: 1, marginRight: 8 },
+    cardTitle: { fontSize: 16, color: theme.text, fontWeight: "600" },
+    cardTitleDone: { textDecorationLine: "line-through", color: theme.muted },
+    cardSubtitle: { marginTop: 2, fontSize: 13, color: theme.muted },
+    fab: {
+      position: "absolute",
+      right: 20,
+      bottom: 26,
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      backgroundColor: theme.accent,
+      alignItems: "center",
+      justifyContent: "center",
+      ...Platform.select({
+        web: { boxShadow: "0 4px 12px rgba(0,0,0,0.15)" },
+        ios: {
+          shadowColor: "#000",
+          shadowOpacity: 0.15,
+          shadowRadius: 8,
+          shadowOffset: { width: 0, height: 4 },
+        },
+        android: { elevation: 5 },
+      }),
+    },
+    // 🔹 Modal styles
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.4)",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    modalContainer: {
+      width: "85%",
+      backgroundColor: theme.card,
+      borderRadius: 16,
+      padding: 20,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    modalTitle: {
+      fontSize: 18,
+      fontWeight: "700",
+      marginBottom: 10,
+      color: theme.text,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: 10,
+      padding: 10,
+      marginBottom: 10,
+      color: theme.text,
+      backgroundColor: theme.card,
+    },
+    modalButtons: {
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      marginTop: 10,
+    },
+    modalBtn: {
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+      borderRadius: 8,
+      marginLeft: 8,
+    },
+    cancelBtn: {
+      backgroundColor: theme.border,
+    },
+    saveBtn: {
+      backgroundColor: theme.accent,
+    },
+    modalBtnText: {
+      fontWeight: "700",
+      color: theme.text,
+    },
+  });

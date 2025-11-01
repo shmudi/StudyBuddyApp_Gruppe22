@@ -4,6 +4,7 @@ import { FlatList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from
 import { useAuth } from "../contexts/AuthContext";
 import { Task, TaskService } from "../services/tasks"; 
 import { colors } from "../theme/colors";
+import { useTheme } from "../contexts/ThemeContext";
 
 // Ukedager forkortet (manuelt definert)
 const WEEKDAYS = ["M", "T", "O", "T", "F", "L", "S"];
@@ -17,6 +18,7 @@ type DayCell = {
 
 export default function CalendarScreen() {
   const { user } = useAuth();
+  const { colors: themeColors } = useTheme();
   const [monthOffset, setMonthOffset] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -115,28 +117,28 @@ export default function CalendarScreen() {
   }, [selected, tasks, monthOffset]);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }] }>
       {/* Header med knapp for å bytte måned */}
       {/* Kilde: https://docs.expo.dev/guides/icons/ */}
       <View style={styles.header}>
         <TouchableOpacity
-          style={styles.iconBtn}
+          style={[styles.iconBtn, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
           onPress={() => setMonthOffset((o) => o - 1)}
           accessibilityRole="button"
           accessibilityLabel="Forrige måned"
         >
-          <Ionicons name="chevron-back" size={22} color={colors.text} />
+          <Ionicons name="chevron-back" size={22} color={themeColors.text} />
         </TouchableOpacity>
 
-        <Text style={styles.month}>{monthLabel}</Text>
+        <Text style={[styles.month, { color: themeColors.text }]}>{monthLabel}</Text>
 
         <TouchableOpacity
-          style={styles.iconBtn}
+          style={[styles.iconBtn, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
           onPress={() => setMonthOffset((o) => o + 1)}
           accessibilityRole="button"
           accessibilityLabel="Neste måned"
         >
-          <Ionicons name="chevron-forward" size={22} color={colors.text} />
+          <Ionicons name="chevron-forward" size={22} color={themeColors.text} />
         </TouchableOpacity>
       </View>
 
@@ -144,7 +146,7 @@ export default function CalendarScreen() {
       {/* Kilde: https://reactnative.dev/docs/text */}
       <View style={styles.weekRow}>
         {WEEKDAYS.map((d, i) => (
-          <Text key={`${d}-${i}`} style={styles.weekday}>
+          <Text key={`${d}-${i}`} style={[styles.weekday, { color: themeColors.muted }]}>
             {d}
           </Text>
         ))}
@@ -171,9 +173,10 @@ export default function CalendarScreen() {
               onPress={() => item.label && setSelected(item.label)}
               style={[
                 styles.dayCell,
-                item.muted && styles.dayMuted,
-                isToday && styles.today,
-                isSelected && styles.selected,
+                { backgroundColor: themeColors.card, borderColor: themeColors.border },
+                item.muted && { backgroundColor: themeColors.background, borderColor: 'transparent' },
+                isToday && { borderColor: themeColors.accent, borderWidth: 2 },
+                isSelected && { backgroundColor: themeColors.accent, borderColor: themeColors.accent },
               ]}
               accessibilityRole="button"
               accessibilityLabel={
@@ -185,7 +188,8 @@ export default function CalendarScreen() {
               <Text
                 style={[
                   styles.dayText,
-                  item.muted && styles.muted,
+                  { color: themeColors.text },
+                  item.muted && { color: themeColors.muted },
                   isSelected && styles.selectedText,
                 ]}
               >
@@ -195,7 +199,7 @@ export default function CalendarScreen() {
               {/* Viser prikk på dager med registrerte oppgaver */}
               {/* Kilde: https://firebase.google.com/docs/firestore/query-data/get-data */}
               {item.hasDot && !item.muted && (
-                <View style={[styles.dot, isSelected && styles.dotOnSelected]} />
+                <View style={[styles.dot, { backgroundColor: themeColors.accent }, isSelected && styles.dotOnSelected]} />
               )}
             </TouchableOpacity>
           );
@@ -203,26 +207,26 @@ export default function CalendarScreen() {
       />
 
       {/* Info-kort nederst – viser oppgaver for valgt dag */}
-      <View style={styles.infoCard}>
+  <View style={[styles.infoCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
         {selected ? (
           <>
-            <Text style={styles.infoTitle}>
+            <Text style={[styles.infoTitle, { color: themeColors.text }]}>
               {`Valgt: ${selected}. ${monthLabel.split(" ")[0]}`}
             </Text>
             {selectedTasks.length > 0 ? (
               selectedTasks.map((t) => (
-                <Text key={t.id} style={styles.infoSub}>
+                <Text key={t.id} style={[styles.infoSub, { color: themeColors.muted }]}>
                   • {t.title} ({t.course || "Uten fag"})
                 </Text>
               ))
             ) : (
-              <Text style={styles.infoSub}>Ingen oppgaver denne dagen 🎉</Text>
+              <Text style={[styles.infoSub, { color: themeColors.muted }]}>Ingen oppgaver denne dagen 🎉</Text>
             )}
           </>
         ) : (
           <>
-            <Text style={styles.infoTitle}>Velg en dag i kalenderen</Text>
-            <Text style={styles.infoSub}>
+            <Text style={[styles.infoTitle, { color: themeColors.text }]}>Velg en dag i kalenderen</Text>
+            <Text style={[styles.infoSub, { color: themeColors.muted }]}>
               Prikker viser dager med oppgaver fra Firebase
             </Text>
           </>

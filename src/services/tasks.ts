@@ -45,13 +45,15 @@ export class TaskService {
       const querySnapshot = await getDocs(q);
       const tasks: Task[] = [];
       
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
+      querySnapshot.forEach((docSnap) => {
+        const data: any = docSnap.data();
+        const createdAt = data?.createdAt?.toDate ? data.createdAt.toDate() : new Date(0);
+        const updatedAt = data?.updatedAt?.toDate ? data.updatedAt.toDate() : createdAt || new Date(0);
         tasks.push({
-          id: doc.id,
+          id: docSnap.id,
           ...data,
-          createdAt: data.createdAt.toDate(),
-          updatedAt: data.updatedAt.toDate(),
+          createdAt,
+          updatedAt,
         } as Task);
       });
       
@@ -66,13 +68,15 @@ export class TaskService {
         const qNoIndex = query(tasksRef, where('userId', '==', userId));
         const snap = await getDocs(qNoIndex);
         const tasks: Task[] = [];
-        snap.forEach((doc) => {
-          const data = doc.data();
+        snap.forEach((docSnap) => {
+          const data: any = docSnap.data();
+          const createdAt = data?.createdAt?.toDate ? data.createdAt.toDate() : new Date(0);
+          const updatedAt = data?.updatedAt?.toDate ? data.updatedAt.toDate() : createdAt || new Date(0);
           tasks.push({
-            id: doc.id,
+            id: docSnap.id,
             ...data,
-            createdAt: data.createdAt.toDate(),
-            updatedAt: data.updatedAt.toDate(),
+            createdAt,
+            updatedAt,
           } as Task);
         });
         // Sorter nyligste først
