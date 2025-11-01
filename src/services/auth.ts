@@ -7,7 +7,8 @@ import {
   signOut,
 } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { auth, db } from "../config/firebase";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { auth, db, storage } from "../config/firebase";
 
 // Struktur for brukerdata lagret i Firestore
 export interface UserProfile {
@@ -15,6 +16,8 @@ export interface UserProfile {
   email: string;
   fullName: string;
   username: string;
+  /** Optional profilbilde-URL lagret i Firestore/Storage */
+  photoURL?: string;
   createdAt: Date;
 }
 
@@ -102,5 +105,37 @@ export class AuthService {
   // Lytt på auth state endringer
   static onAuthStateChange(callback: (user: User | null) => void) {
     return onAuthStateChanged(auth as Auth, callback);
+  }
+
+  // Last opp profilbilde til Firebase Storage og returner nedlastings-URL
+  static async uploadProfilePhoto(userId: string, localUri: string): Promise<string> {
+    try {
+      // Gjør local URI om til Blob
+      const response = await fetch(localUri);
+      const blob = await response.blob();
+
+  // Bruk unik filnavn for å unngå cache-problemer
+  const filename = `profile_${Date.now()}.jpg`;
+  const imageRef = ref(storage, `users/${userId}/${filename}`);
+      await uploadBytes(imageRef, blob, { contentType: blob.type || "image/jpeg" });
+      const downloadURL = await getDownloadURL(imageRef);
+      return downloadURL;
+    } catch (error: any) {
+      console.error("❌ Opplasting av profilbilde feilet:", error.message || error);
+      throw new Error(error.message || "Kunne ikke laste opp bilde");
+    }
+  }
+
+  // Oppdater brukerprofil i Firestore (merge felter)
+  static async updateUserProfile(
+    userId: string,
+    data: Partial<Pick<UserProfile, "fullName" | "username" | "photoURL">>
+  ): Promise<void> {
+    try {
+      await setDoc(doc(db, "users", userId), data, { merge: true });
+    } catch (error: any) {
+      console.error("❌ Oppdatering av brukerprofil feilet:", error.message || error);
+      throw new Error(error.message || "Kunne ikke oppdatere profil");
+    }
   }
 }

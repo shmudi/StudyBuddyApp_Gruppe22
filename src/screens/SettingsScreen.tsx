@@ -1,18 +1,18 @@
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Image,
+  Linking,
+  ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TouchableOpacity,
   View,
-  Switch,
-  Linking,
-  ActivityIndicator,
 } from "react-native";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
-
 
 export default function SettingsScreen({ navigation }: { navigation: any }) {
   const { logout, userProfile } = useAuth();
@@ -41,10 +41,19 @@ export default function SettingsScreen({ navigation }: { navigation: any }) {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <ScrollView
+      style={[styles.scrollContainer, { backgroundColor: colors.background }]}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* PROFIL */}
       <View style={styles.profileSection}>
         <Image
-          source={require("../../assets/profilbilde.png")}
+          source={
+            userProfile?.photoURL
+              ? { uri: userProfile.photoURL }
+              : require("../../assets/profilbilde.png")
+          }
           style={[styles.profileImage, { backgroundColor: colors.card }]}
         />
         <Text style={[styles.profileName, { color: colors.text }]}>
@@ -57,6 +66,7 @@ export default function SettingsScreen({ navigation }: { navigation: any }) {
         )}
       </View>
 
+      {/* INNSTILLINGER */}
       <View style={styles.settingsSection}>
         <View style={styles.settingRow}>
           <Text style={[styles.optionText, { color: colors.text }]}>Mørk modus</Text>
@@ -86,6 +96,7 @@ export default function SettingsScreen({ navigation }: { navigation: any }) {
         </TouchableOpacity>
       </View>
 
+      {/* LOGG UT */}
       <TouchableOpacity
         style={[styles.logoutButton, { backgroundColor: colors.error }]}
         onPress={handleLogout}
@@ -101,24 +112,30 @@ export default function SettingsScreen({ navigation }: { navigation: any }) {
         )}
       </TouchableOpacity>
 
+      {/* APP INFO */}
       <View style={styles.appInfoSection}>
         <Text style={[styles.appInfo, { color: colors.muted }]}>StudyBuddy v1.0.0</Text>
-        <Text style={[styles.appInfoSmall, { color: colors.muted }]}>Utviklet av Gruppe 22</Text>
+        <Text style={[styles.appInfoSmall, { color: colors.muted }]}>
+          Utviklet av Gruppe 22
+        </Text>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  scrollContainer: {
     flex: 1,
+  },
+  scrollContent: {
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 40,
+    paddingVertical: 30,
+    paddingBottom: 30,
   },
   profileSection: {
     alignItems: "center",
-    marginTop: 60,
+    marginTop: 30,
+    marginBottom: 20,
   },
   profileImage: {
     width: 100,
@@ -126,9 +143,19 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     marginBottom: 16,
   },
-  profileName: { fontSize: 22, fontWeight: "bold" },
-  username: { fontSize: 16, marginTop: 4 },
-  settingsSection: { width: "85%", marginTop: 20 },
+  profileName: {
+    fontSize: 22,
+    fontWeight: "bold",
+  },
+  username: {
+    fontSize: 16,
+    marginTop: 4,
+  },
+  settingsSection: {
+    width: "85%",
+    marginTop: 20,
+    marginBottom: 40,
+  },
   settingRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -136,18 +163,37 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
   optionButton: {
-    paddingVertical: 14,
+    paddingVertical: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  optionText: { fontSize: 18 },
+  optionText: {
+    fontSize: 18,
+  },
   logoutButton: {
     paddingVertical: 14,
-    paddingHorizontal: 40,
+    paddingHorizontal: 30,
     borderRadius: 30,
+    marginTop: 10,
+    marginBottom: 20, 
+    alignSelf: "center",
   },
-  logoutContent: { flexDirection: "row", alignItems: "center" },
-  logoutText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
-  appInfoSection: { alignItems: "center", marginBottom: 20 },
-  appInfo: { fontSize: 14 },
-  appInfoSmall: { fontSize: 12 },
+  logoutContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  logoutText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  appInfoSection: {
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  appInfo: {
+    fontSize: 14,
+  },
+  appInfoSmall: {
+    fontSize: 12,
+  },
 });
