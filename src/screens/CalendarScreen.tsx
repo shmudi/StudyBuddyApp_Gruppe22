@@ -2,9 +2,9 @@ import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useMemo, useState } from "react"; 
 import { FlatList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from "react-native"; 
 import { useAuth } from "../contexts/AuthContext";
-import { Task, TaskService } from "../services/tasks"; 
-import { colors } from "../theme/colors";
 import { useTheme } from "../contexts/ThemeContext";
+import { colors } from "../theme/colors";
+import { EventItem, getEventsForMonth } from "../services/events";  // Import updated events service
 
 // Ukedager forkortet (manuelt definert)
 const WEEKDAYS = ["M", "T", "O", "T", "F", "L", "S"];
@@ -21,17 +21,22 @@ export default function CalendarScreen() {
   const { colors: themeColors } = useTheme();
   const [monthOffset, setMonthOffset] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [events, setEvents] = useState<EventItem[]>([]);  // Changed from tasks to events
 
 
   useEffect(() => {
     if (!user) return;
     (async () => {
       try {
-        const userTasks = await TaskService.getUserTasks(user.uid);
-        setTasks(userTasks);
+        const base = new Date();
+        const current = new Date(base.getFullYear(), base.getMonth() + monthOffset, 1);
+        const year = current.getFullYear();
+        const month = current.getMonth();
+        
+        const userEvents = await getEventsForMonth(year, month, user.uid);  // Use events service
+        setEvents(userEvents);
       } catch (error) {
-        console.warn("Kunne ikke hente oppgaver:", error);
+        // console.warn("Kunne ikke hente hendelser:", error);
       }
     })();
   }, [user, monthOffset]);
@@ -63,16 +68,16 @@ export default function CalendarScreen() {
     const grid: DayCell[] = [];
     for (let i = 0; i < firstWeekday; i++) grid.push({ key: `p${i}`, muted: true });
 
-    // Finn alle oppgaver som har frist i denne måneden
+    // Finn alle events som har dato i denne måneden
     const eventsByDay = new Set<number>();
-    tasks.forEach((task) => {
-      if (!task.due) return;
-      const dueDate = new Date(task.due);
+    events.forEach((event: EventItem) => {
+      if (!event.date) return;
+      const eventDate = new Date(event.date);
       if (
-        dueDate.getFullYear() === current.getFullYear() &&
-        dueDate.getMonth() === current.getMonth()
+        eventDate.getFullYear() === current.getFullYear() &&
+        eventDate.getMonth() === current.getMonth()
       ) {
-        eventsByDay.add(dueDate.getDate());
+        eventsByDay.add(eventDate.getDate());
       }
     });
 
@@ -96,25 +101,25 @@ export default function CalendarScreen() {
     const todayNum = isSameMonth ? t.getDate() : null;
 
     return { monthLabel: label, daysGrid: grid, todayNum };
-  }, [monthOffset, tasks]);
+  }, [monthOffset, events]);
 
-  // Filtrerer alle oppgaver som tilhører valgt dato
+  // Filtrerer alle events som tilhører valgt dato
   // Bruker Date-objekt for å sammenligne dag, måned og år
   // Kilde: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date
-  const selectedTasks = useMemo(() => {
+  const selectedEvents = useMemo(() => {
     if (!selected) return [];
     const base = new Date();
     const currentMonth = new Date(base.getFullYear(), base.getMonth() + monthOffset, 1);
-    return tasks.filter((t) => {
-      if (!t.due) return false;
-      const d = new Date(t.due);
+    return events.filter((event: EventItem) => {
+      if (!event.date) return false;
+      const d = new Date(event.date);
       return (
         d.getFullYear() === currentMonth.getFullYear() &&
         d.getMonth() === currentMonth.getMonth() &&
         d.getDate() === selected
       );
     });
-  }, [selected, tasks, monthOffset]);
+  }, [selected, events, monthOffset]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }] }>
@@ -123,7 +128,7 @@ export default function CalendarScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           style={[styles.iconBtn, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
-          onPress={() => setMonthOffset((o) => o - 1)}
+          onPress={() => setMonthOffset((o: number) => o - 1)}
           accessibilityRole="button"
           accessibilityLabel="Forrige måned"
         >
@@ -134,7 +139,7 @@ export default function CalendarScreen() {
 
         <TouchableOpacity
           style={[styles.iconBtn, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
-          onPress={() => setMonthOffset((o) => o + 1)}
+          onPress={() => setMonthOffset((o: number) => o - 1)}
           accessibilityRole="button"
           accessibilityLabel="Neste måned"
         >
@@ -157,12 +162,12 @@ export default function CalendarScreen() {
       <FlatList
         data={daysGrid}
         numColumns={7}
-        keyExtractor={(i) => i.key}
+        keyExtractor={(i: DayCell) => i.key}
         columnWrapperStyle={styles.gridRow}
         contentContainerStyle={styles.grid}
         initialNumToRender={21}
         windowSize={7}
-        renderItem={({ item }) => {
+        renderItem={({ item }: { item: DayCell }) => {
           const isToday = !!item.label && item.label === todayNum;
           const isSelected = !!item.label && item.label === selected;
 
@@ -213,21 +218,21 @@ export default function CalendarScreen() {
             <Text style={[styles.infoTitle, { color: themeColors.text }]}>
               {`Valgt: ${selected}. ${monthLabel.split(" ")[0]}`}
             </Text>
-            {selectedTasks.length > 0 ? (
-              selectedTasks.map((t) => (
-                <Text key={t.id} style={[styles.infoSub, { color: themeColors.muted }]}>
-                  • {t.title} ({t.course || "Uten fag"})
+            {selectedEvents.length > 0 ? (
+              selectedEvents.map((event: EventItem) => (
+                <Text key={event.id} style={[styles.infoSub, { color: themeColors.muted }]}>
+                  • {event.title} {event.description ? `- ${event.description}` : ""}
                 </Text>
               ))
             ) : (
-              <Text style={[styles.infoSub, { color: themeColors.muted }]}>Ingen oppgaver denne dagen 🎉</Text>
+              <Text style={[styles.infoSub, { color: themeColors.muted }]}>Ingen hendelser denne dagen 🎉</Text>
             )}
           </>
         ) : (
           <>
             <Text style={[styles.infoTitle, { color: themeColors.text }]}>Velg en dag i kalenderen</Text>
             <Text style={[styles.infoSub, { color: themeColors.muted }]}>
-              Prikker viser dager med oppgaver fra Firebase
+              Prikker viser dager med hendelser fra Firebase
             </Text>
           </>
         )}

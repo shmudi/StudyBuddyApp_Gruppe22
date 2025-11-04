@@ -6,14 +6,22 @@
     "isolatedModules": true,
     "jsx": "react-native",
     "lib": [
-      "es6"
+      "es6",
+      "dom"
     ],
-    "moduleResolution": "bundler",
+    "moduleResolution": "node",
     "noEmit": true,
     "strict": true,
     "target": "esnext",
     "resolveJsonModule": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "*": [
+        "node_modules/*",
+        "src/*"
+      ]
+    }
   },
   "exclude": [
     "node_modules",
