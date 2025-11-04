@@ -1,7 +1,8 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useAuth } from '../../contexts/AuthContext';
 
 // Registrering
 type RootStackParamList = {
@@ -13,24 +14,89 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Register'>;
 
 export default function RegisterScreen() {
   const navigation = useNavigation<NavigationProp>();
+  const { register } = useAuth();
+  
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleRegister = async () => {
+    if (!fullName || !email || !username || !password) {
+      Alert.alert('Feil', 'Vennligst fyll inn alle feltene');
+      return;
+    }
+
+    if (password.length < 6) {
+      Alert.alert('Feil', 'Passordet må være minst 6 tegn');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await register(email, password, fullName, username);
+      Alert.alert('Suksess', 'Kontoen ble opprettet!');
+      // Navigasjon håndteres automatisk av AuthContext
+    } catch (error) {
+      Alert.alert('Registreringsfeil', error instanceof Error ? error.message : 'Ukjent feil');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Registrer</Text>
 
-  {/* Fullt navn: valgfritt */}
-      <TextInput placeholder="Fullt navn" style={styles.input} />
-  {/* E-post: vis e-posttastatur */}
-      <TextInput placeholder="E-post" style={styles.input} keyboardType="email-address" />
-      <TextInput placeholder="Brukernavn" style={styles.input} />
-      {/* Passord: secureTextEntry skjuler tegnene */}
-      <TextInput placeholder="Passord" secureTextEntry style={styles.input} />
+      {/* Fullt navn */}
+      <TextInput 
+        placeholder="Fullt navn" 
+        style={styles.input}
+        value={fullName}
+        onChangeText={setFullName}
+      />
+      
+      {/* E-post */}
+      <TextInput 
+        placeholder="E-post" 
+        style={styles.input} 
+        keyboardType="email-address"
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+      />
+      
+      {/* Brukernavn */}
+      <TextInput 
+        placeholder="Brukernavn" 
+        style={styles.input}
+        value={username}
+        onChangeText={setUsername}
+        autoCapitalize="none"
+      />
+      
+      {/* Passord */}
+      <TextInput 
+        placeholder="Passord" 
+        secureTextEntry 
+        style={styles.input}
+        value={password}
+        onChangeText={setPassword}
+      />
 
-  {/* Opprett konto: legg validering/API-kall i onPress */}
-      <TouchableOpacity style={styles.button}>
-        <Text style={styles.buttonText}>Opprett konto</Text>
+      {/* Opprett konto */}
+      <TouchableOpacity 
+        style={[styles.button, loading && styles.buttonDisabled]}
+        onPress={handleRegister}
+        disabled={loading}
+      >
+        <Text style={styles.buttonText}>
+          {loading ? 'Oppretter konto...' : 'Opprett konto'}
+        </Text>
       </TouchableOpacity>
 
-  {/* Tilbake til innlogging */}
+      {/* Tilbake til innlogging */}
       <TouchableOpacity onPress={() => navigation.goBack()}>
         <Text style={styles.back}>Tilbake til innlogging</Text>
       </TouchableOpacity>
@@ -66,6 +132,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 12,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   buttonText: {
     color: '#000',

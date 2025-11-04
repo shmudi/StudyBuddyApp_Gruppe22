@@ -1,7 +1,8 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useAuth } from '../../contexts/AuthContext';
 
 // Innlogging
 type RootStackParamList = {
@@ -15,34 +16,69 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'>;
 
 export default function LoginScreen() {
   const navigation = useNavigation<NavigationProp>();
+  const { login } = useAuth();
+  
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Feil', 'Vennligst fyll inn både e-post og passord');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await login(email, password);
+      // Navigasjon håndteres automatisk av AuthContext
+    } catch (error) {
+      Alert.alert('Innloggingsfeil', error instanceof Error ? error.message : 'Ukjent feil');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>StudyBuddy</Text>
 
-  {/* Brukernavnfelt: koble til state med onChangeText for å lese input */}
-  <TextInput placeholder="brukernavn" style={styles.input} />
-  {/* Passord-felt: secureTextEntry skjuler input-tegnene */}
-  <TextInput placeholder="passord" secureTextEntry style={styles.input} />
+      {/* E-post felt */}
+      <TextInput 
+        placeholder="E-post" 
+        style={styles.input}
+        value={email}
+        onChangeText={setEmail}
+        keyboardType="email-address"
+        autoCapitalize="none"
+      />
+      
+      {/* Passord-felt */}
+      <TextInput 
+        placeholder="Passord" 
+        secureTextEntry 
+        style={styles.input}
+        value={password}
+        onChangeText={setPassword}
+      />
 
-      {/* Glemt passord: åpner gjenopprettingsskjerm */}
+      {/* Glemt passord */}
       <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
         <Text style={styles.forgot}>Glemt passord</Text>
       </TouchableOpacity>
 
-      {/* Logg inn-knapp: legg autentiseringslogikk i onPress */}
+      {/* Logg inn-knapp */}
       <TouchableOpacity
-        style={styles.button}
-        onPress={() => {
-          // Her bør du validere brukernavn/passord. Når innlogging er vellykket,
-          // bytt til hoved-appen. replace fjerner login fra stack slik at brukeren
-          // ikke kan gå tilbake med fysisk tilbake-knapp.
-          navigation.replace('Main');
-        }}
+        style={[styles.button, loading && styles.buttonDisabled]}
+        onPress={handleLogin}
+        disabled={loading}
       >
-        <Text style={styles.buttonText}>Logg inn</Text>
+        <Text style={styles.buttonText}>
+          {loading ? 'Logger inn...' : 'Logg inn'}
+        </Text>
       </TouchableOpacity>
 
-  {/* Åpne registrering */}
+      {/* Åpne registrering */}
       <TouchableOpacity onPress={() => navigation.navigate('Register')}>
         <Text style={styles.create}>Registrer</Text>
       </TouchableOpacity>
@@ -83,6 +119,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   buttonText: {
     color: '#000',

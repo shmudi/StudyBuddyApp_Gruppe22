@@ -1,7 +1,8 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useAuth } from '../../contexts/AuthContext';
 
 // Glemt passord
 type RootStackParamList = {
@@ -13,15 +14,57 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'ForgotPassw
 
 export default function ForgotPasswordScreen() {
   const navigation = useNavigation<NavigationProp>();
+  const { resetPassword } = useAuth();
+  
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleResetPassword = async () => {
+    if (!email) {
+      Alert.alert('Feil', 'Vennligst skriv inn e-postadressen din');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await resetPassword(email);
+      Alert.alert(
+        'E-post sendt', 
+        'Sjekk e-posten din for instruksjoner om å tilbakestille passordet.',
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
+    } catch (error) {
+      Alert.alert('Feil', error instanceof Error ? error.message : 'Ukjent feil');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Glemt passord</Text>
 
-      <Text style={styles.info}>Skriv inn e-posten din for å motta instruksjoner for å tilbakestille passordet.</Text>
-      <TextInput placeholder="E-post" style={styles.input} keyboardType="email-address" />
+      <Text style={styles.info}>
+        Skriv inn e-posten din for å motta instruksjoner for å tilbakestille passordet.
+      </Text>
+      
+      <TextInput 
+        placeholder="E-post" 
+        style={styles.input} 
+        keyboardType="email-address"
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+      />
 
-      <TouchableOpacity style={styles.button}>
-        <Text style={styles.buttonText}>Send e-post</Text>
+      <TouchableOpacity 
+        style={[styles.button, loading && styles.buttonDisabled]}
+        onPress={handleResetPassword}
+        disabled={loading}
+      >
+        <Text style={styles.buttonText}>
+          {loading ? 'Sender e-post...' : 'Send e-post'}
+        </Text>
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -65,6 +108,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 12,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   buttonText: {
     color: '#000',
