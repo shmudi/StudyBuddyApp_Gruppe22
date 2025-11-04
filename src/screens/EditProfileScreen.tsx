@@ -1,9 +1,7 @@
-import * as ImagePicker from "expo-image-picker";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Image,
   StyleSheet,
   Text,
   TextInput,
@@ -20,25 +18,11 @@ export default function EditProfileScreen({ navigation }: { navigation: any }) {
 
   const [fullName, setFullName] = useState(userProfile?.fullName || "");
   const [username, setUsername] = useState(userProfile?.username || "");
-  const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (userProfile?.photoURL) setImage(userProfile.photoURL);
+    // Profilbilde-håndtering er fjernet
   }, [userProfile]);
-
-  const handleSelectImage = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert("Tillatelse kreves", "Appen trenger tilgang til bildene dine.");
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.8,
-    });
-    if (!result.canceled) setImage(result.assets[0].uri);
-  };
 
   const handleSave = async () => {
     if (!fullName.trim() || !username.trim()) {
@@ -48,17 +32,10 @@ export default function EditProfileScreen({ navigation }: { navigation: any }) {
 
     try {
       setLoading(true);
-      let photoURL: string | undefined = userProfile?.photoURL;
-      if (image && user?.uid) {
-        // Laster opp bildet og får en offentlig URL
-        photoURL = await AuthService.uploadProfilePhoto(user.uid, image);
-      }
-
       if (user?.uid) {
         await AuthService.updateUserProfile(user.uid, {
           fullName,
           username,
-          photoURL,
         });
   await refreshUserProfile();
       }
@@ -76,21 +53,6 @@ export default function EditProfileScreen({ navigation }: { navigation: any }) {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Text style={[styles.title, { color: colors.text }]}>Rediger profil</Text>
-
-      <TouchableOpacity onPress={handleSelectImage} style={styles.imageWrapper}>
-        {image ? (
-          <Image source={{ uri: image }} style={styles.profileImage} />
-        ) : (
-          <View
-            style={[
-              styles.placeholder,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
-            <Text style={{ color: colors.muted }}>Velg bilde</Text>
-          </View>
-        )}
-      </TouchableOpacity>
 
       <TextInput
         style={[styles.input, { backgroundColor: colors.card, color: colors.text }]}
@@ -137,22 +99,6 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "700",
     marginVertical: 20,
-  },
-  imageWrapper: {
-    marginBottom: 20,
-  },
-  profileImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-  },
-  placeholder: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 1,
-    justifyContent: "center",
-    alignItems: "center",
   },
   input: {
     width: "100%",
