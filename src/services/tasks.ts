@@ -1,14 +1,15 @@
-import { 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
-  getDocs, 
-  query, 
-  where, 
-  orderBy, 
-  Timestamp 
+import { FirebaseError } from 'firebase/app';
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  orderBy,
+  query,
+  Timestamp,
+  updateDoc,
+  where
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
@@ -44,18 +45,44 @@ export class TaskService {
       const querySnapshot = await getDocs(q);
       const tasks: Task[] = [];
       
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
+      querySnapshot.forEach((docSnap) => {
+        const data: any = docSnap.data();
+        const createdAt = data?.createdAt?.toDate ? data.createdAt.toDate() : new Date(0);
+        const updatedAt = data?.updatedAt?.toDate ? data.updatedAt.toDate() : createdAt || new Date(0);
         tasks.push({
-          id: doc.id,
+          id: docSnap.id,
           ...data,
-          createdAt: data.createdAt.toDate(),
-          updatedAt: data.updatedAt.toDate(),
+          createdAt,
+          updatedAt,
         } as Task);
       });
       
       return tasks;
     } catch (error) {
+      // Fallback: mangler indeks (failed-precondition) -> hent uten orderBy og sorter i klient
+      if (error instanceof FirebaseError && error.code === 'failed-precondition') {
+        console.warn(
+          'Firestore: Mangler sammensatt indeks for (userId asc, createdAt desc). Bruker fallback uten indeks og sorterer i klient. Opprett indeksen i Firebase Console for best ytelse.'
+        );
+        const tasksRef = collection(db, 'tasks');
+        const qNoIndex = query(tasksRef, where('userId', '==', userId));
+        const snap = await getDocs(qNoIndex);
+        const tasks: Task[] = [];
+        snap.forEach((docSnap) => {
+          const data: any = docSnap.data();
+          const createdAt = data?.createdAt?.toDate ? data.createdAt.toDate() : new Date(0);
+          const updatedAt = data?.updatedAt?.toDate ? data.updatedAt.toDate() : createdAt || new Date(0);
+          tasks.push({
+            id: docSnap.id,
+            ...data,
+            createdAt,
+            updatedAt,
+          } as Task);
+        });
+        // Sorter nyligste først
+        tasks.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        return tasks;
+      }
       console.error('Feil ved henting av oppgaver:', error);
       throw new Error('Kunne ikke hente oppgaver');
     }

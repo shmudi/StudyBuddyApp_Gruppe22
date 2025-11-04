@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User } from 'firebase/auth';
-import { AuthService, UserProfile } from '../services/auth';
+import type { User } from "firebase/auth";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { AuthService, UserProfile } from "../services/auth";
 
 interface AuthContextType {
   user: User | null;
@@ -10,6 +10,7 @@ interface AuthContextType {
   register: (email: string, password: string, fullName: string, username: string) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  refreshUserProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -17,31 +18,27 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth må brukes innenfor AuthProvider');
+    throw new Error("useAuth må brukes innenfor AuthProvider");
   }
   return context;
 };
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = AuthService.onAuthStateChange(async (user) => {
-      setUser(user);
-      
-      if (user) {
-        // Hent brukerprofil når bruker logger inn
-        const profile = await AuthService.getUserProfile(user.uid);
+    const unsubscribe = AuthService.onAuthStateChange(async (firebaseUser) => {
+      setUser(firebaseUser);
+      if (firebaseUser) {
+        const profile = await AuthService.getUserProfile(firebaseUser.uid);
         setUserProfile(profile);
       } else {
         setUserProfile(null);
       }
-      
       setLoading(false);
     });
-
     return unsubscribe;
   }, []);
 
@@ -55,7 +52,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (email: string, password: string, fullName: string, username: string) => {
+  const register = async (
+    email: string,
+    password: string,
+    fullName: string,
+    username: string
+  ) => {
     setLoading(true);
     try {
       await AuthService.register(email, password, fullName, username);
@@ -66,19 +68,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
-    try {
-      await AuthService.logout();
-    } catch (error) {
-      throw error;
-    }
+    await AuthService.logout();
   };
 
   const resetPassword = async (email: string) => {
-    try {
-      await AuthService.resetPassword(email);
-    } catch (error) {
-      throw error;
+    await AuthService.resetPassword(email);
+  };
+
+  const refreshUserProfile = async () => {
+    if (!user) {
+      setUserProfile(null);
+      return;
     }
+    const profile = await AuthService.getUserProfile(user.uid);
+    setUserProfile(profile);
   };
 
   const value: AuthContextType = {
@@ -89,11 +92,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     register,
     logout,
     resetPassword,
+    refreshUserProfile,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}

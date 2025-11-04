@@ -1,97 +1,199 @@
-import React, { useState } from 'react';
-import { Alert, Image, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
-import { useAuth } from '../contexts/AuthContext';
-import { colors } from '../theme/colors';
+import React, { useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Linking,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { useAuth } from "../contexts/AuthContext";
+import { useTheme } from "../contexts/ThemeContext";
 
-export default function SettingsScreen() {
+export default function SettingsScreen({ navigation }: { navigation: any }) {
   const { logout, userProfile } = useAuth();
+  const { theme, toggleTheme, colors } = useTheme();
+  const darkMode = theme === "dark";
   const [loggingOut, setLoggingOut] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
-  const handleLogout = async () => {
-    setLoggingOut(true);
-    try {
-      await logout();
-      // Navigation skjer automatisk via AuthContext
-    } catch (error) {
-      setLoggingOut(false);
-      console.error('Logout feil:', error);
-    }
+  const handleLogout = () => {
+    Alert.alert("Logg ut", "Er du sikker på at du vil logge ut?", [
+      { text: "Avbryt", style: "cancel" },
+      {
+        text: "Logg ut",
+        style: "destructive",
+        onPress: async () => {
+          setLoggingOut(true);
+          try {
+            await logout();
+          } catch (error) {
+            console.error("Logout-feil:", error);
+            setLoggingOut(false);
+          }
+        },
+      },
+    ]);
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={[styles.scrollContainer, { backgroundColor: colors.background }]}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* PROFIL */}
       <View style={styles.profileSection}>
-        <Image source={require('../../assets/profilbilde.png')} style={styles.profileImage} />
-        <Text style={styles.profileName}>
-          {userProfile?.fullName || 'Din Profil'}
+        <Image
+          source={
+            userProfile?.photoURL
+              ? { uri: userProfile.photoURL }
+              : require("../../assets/profilbilde.png")
+          }
+          style={[styles.profileImage, { backgroundColor: colors.card }]}
+        />
+        <Text style={[styles.profileName, { color: colors.text }]}>
+          {userProfile?.fullName || "Din Profil"}
         </Text>
         {userProfile?.username && (
-          <Text style={styles.username}>@{userProfile.username}</Text>
+          <Text style={[styles.username, { color: colors.muted }]}>
+            @{userProfile.username}
+          </Text>
         )}
       </View>
-      
-      <TouchableOpacity 
-        style={[styles.logoutButton, loggingOut && styles.logoutButtonDisabled]} 
+
+      {/* INNSTILLINGER */}
+      <View style={styles.settingsSection}>
+        <View style={styles.settingRow}>
+          <Text style={[styles.optionText, { color: colors.text }]}>Mørk modus</Text>
+          <Switch value={darkMode} onValueChange={toggleTheme} />
+        </View>
+
+        <View style={styles.settingRow}>
+          <Text style={[styles.optionText, { color: colors.text }]}>Varsler</Text>
+          <Switch
+            value={notificationsEnabled}
+            onValueChange={setNotificationsEnabled}
+          />
+        </View>
+
+        <TouchableOpacity
+          style={styles.optionButton}
+          onPress={() => navigation.navigate("EditProfile")}
+        >
+          <Text style={[styles.optionText, { color: colors.text }]}>Rediger profil</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.optionButton}
+          onPress={() => Linking.openURL("mailto:eclipse.regis@gmail.com")}
+        >
+          <Text style={[styles.optionText, { color: colors.text }]}>Kontakt support</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* LOGG UT */}
+      <TouchableOpacity
+        style={[styles.logoutButton, { backgroundColor: colors.error }]}
         onPress={handleLogout}
         disabled={loggingOut}
       >
         {loggingOut ? (
           <View style={styles.logoutContent}>
-            <ActivityIndicator size="small" color={colors.white} style={{ marginRight: 8 }} />
+            <ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} />
             <Text style={styles.logoutText}>Logger ut...</Text>
           </View>
         ) : (
           <Text style={styles.logoutText}>Logg ut</Text>
         )}
       </TouchableOpacity>
-    </View>
+
+      {/* APP INFO */}
+      <View style={styles.appInfoSection}>
+        <Text style={[styles.appInfo, { color: colors.muted }]}>StudyBuddy v1.0.0</Text>
+        <Text style={[styles.appInfoSmall, { color: colors.muted }]}>
+          Utviklet av Gruppe 22
+        </Text>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  scrollContainer: {
     flex: 1,
-    backgroundColor: colors.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
+  },
+  scrollContent: {
+    alignItems: "center",
+    paddingVertical: 40,
+    paddingBottom: 80, // ekstra luft nederst
   },
   profileSection: {
-    alignItems: 'center',
-    marginBottom: 40,
+    alignItems: "center",
+    marginTop: 40,
+    marginBottom: 30,
   },
   profileImage: {
     width: 100,
     height: 100,
     borderRadius: 50,
     marginBottom: 16,
-    backgroundColor: colors.soft,
   },
   profileName: {
     fontSize: 22,
-    fontWeight: 'bold',
-    color: colors.dark,
+    fontWeight: "bold",
   },
   username: {
     fontSize: 16,
-    color: colors.muted,
     marginTop: 4,
   },
+  settingsSection: {
+    width: "85%",
+    marginTop: 20,
+    marginBottom: 40,
+  },
+  settingRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginVertical: 10,
+  },
+  optionButton: {
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  optionText: {
+    fontSize: 18,
+  },
   logoutButton: {
-    backgroundColor: colors.error,
     paddingVertical: 14,
     paddingHorizontal: 40,
     borderRadius: 30,
-  },
-  logoutButtonDisabled: {
-    opacity: 0.6,
+    marginTop: 40,
+    marginBottom: 50, // luft før app-info
+    alignSelf: "center",
   },
   logoutContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   logoutText: {
-    color: colors.white,
+    color: "#fff",
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
+  },
+  appInfoSection: {
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  appInfo: {
+    fontSize: 14,
+  },
+  appInfoSmall: {
+    fontSize: 12,
   },
 });

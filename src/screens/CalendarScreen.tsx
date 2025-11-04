@@ -1,124 +1,173 @@
-import { Ionicons } from '@expo/vector-icons';
-import React, { useMemo, useState } from 'react';
-import { FlatList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { colors } from '../theme/colors';
+import { Ionicons } from "@expo/vector-icons"; 
+import React, { useEffect, useMemo, useState } from "react"; 
+import { FlatList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from "react-native"; 
+import { useAuth } from "../contexts/AuthContext";
+import { useTheme } from "../contexts/ThemeContext";
+import { colors } from "../theme/colors";
+import { EventItem, getEventsForMonth } from "../services/events";  // Import updated events service
 
-
-
-const WEEKDAYS = ['M', 'T', 'O', 'T', 'F', 'L', 'S'];
+// Ukedager forkortet (manuelt definert)
+const WEEKDAYS = ["M", "T", "O", "T", "F", "L", "S"];
 
 type DayCell = {
   key: string;
-  label?: number;   // 1..31 (dag i måneden)
-  muted?: boolean;  // tomme ruter før/etter måneden
-  hasDot?: boolean; // liten indikator for “noe skjer” (dummy i Alpha)
+  label?: number;
+  muted?: boolean;
+  hasDot?: boolean;
 };
 
-// Hvis vi vil koble på ekte events senere, kan vi la komponenten ta inn props. For nå holder vi det enkelt for alpha-demo
 export default function CalendarScreen() {
-  const [monthOffset, setMonthOffset] = useState(0);       
-  const [selected, setSelected] = useState<number | null>(null); 
+  const { user } = useAuth();
+  const { colors: themeColors } = useTheme();
+  const [monthOffset, setMonthOffset] = useState(0);
+  const [selected, setSelected] = useState<number | null>(null);
+  const [events, setEvents] = useState<EventItem[]>([]);  // Changed from tasks to events
 
-  // useMemo så vi ikke bygger grid på nytt uten grunn når offset endrer seg.
-  // (Cache av beregninger basically.)
-  // Ref: https://react.dev/reference/react/useMemo
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      try {
+        const base = new Date();
+        const current = new Date(base.getFullYear(), base.getMonth() + monthOffset, 1);
+        const year = current.getFullYear();
+        const month = current.getMonth();
+        
+        const userEvents = await getEventsForMonth(year, month, user.uid);  // Use events service
+        setEvents(userEvents);
+      } catch (error) {
+        // console.warn("Kunne ikke hente hendelser:", error);
+      }
+    })();
+  }, [user, monthOffset]);
+
+  // useMemo brukes for å optimalisere kalendergrid-beregning
+  // Kilde: https://react.dev/reference/react/useMemo
   const { monthLabel, daysGrid, todayNum } = useMemo(() => {
     const base = new Date();
+    // Beregner aktuell måned basert på offset (positiv = fremtid, negativ = fortid)
     const current = new Date(base.getFullYear(), base.getMonth() + monthOffset, 1);
 
-    // Norsk måned + år. (Intl er nice, gir riktig språk automatisk.)
-    // Ref: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Intl/DateTimeFormat
-    const monthName = new Intl.DateTimeFormat('no-NO', {
-      month: 'long',
-      year: 'numeric',
+    // Formatterer månedsnavn til norsk språkform
+    // Kilde: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DateTimeFormat
+    const monthName = new Intl.DateTimeFormat("no-NO", {
+      month: "long",
+      year: "numeric",
     }).format(current);
     const label = monthName.charAt(0).toUpperCase() + monthName.slice(1);
 
-    // Date.getDay(): 0=søndag … 6=lørdag. Jeg vil ha mandag=0:
-    // (getDay() + 6) % 7 skyver søndag bakerst. Enkelt triks.
-    // Ref: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Date/getDay
+    // Finner første ukedag i måneden (mandag = 0)
+    // Kilde: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/getDay
     const firstWeekday = (current.getDay() + 6) % 7;
 
-  
+    // Beregner antall dager i måneden
+    // Kilde: https://stackoverflow.com/questions/1184334/get-number-days-in-a-specified-month-using-javascript
     const daysInMonth = new Date(current.getFullYear(), current.getMonth() + 1, 0).getDate();
 
+    // Lager et grid for kalenderen, og fyller ut tomme plasser fra forrige måned
     const grid: DayCell[] = [];
     for (let i = 0; i < firstWeekday; i++) grid.push({ key: `p${i}`, muted: true });
 
-    // Demo-dots i Alpha - kalenderen vil ser mer “levende” ut på skjerm.
-    // Når vi kobler data: sett hasDot = eventsByDay.has(d) i stedet.
-    const demoDots = new Set([3, 9, 14, 21, 28]);
+    // Finn alle events som har dato i denne måneden
+    const eventsByDay = new Set<number>();
+    events.forEach((event: EventItem) => {
+      if (!event.date) return;
+      const eventDate = new Date(event.date);
+      if (
+        eventDate.getFullYear() === current.getFullYear() &&
+        eventDate.getMonth() === current.getMonth()
+      ) {
+        eventsByDay.add(eventDate.getDate());
+      }
+    });
 
+    // Legger inn dager med eventuelle markeringer (prikker)
     for (let d = 1; d <= daysInMonth; d++) {
       grid.push({
         key: `d${d}`,
         label: d,
-        hasDot: demoDots.has(d), // skal bytte til eventsByDay.has(d) når vi har ekte data
+        hasDot: eventsByDay.has(d),
       });
     }
 
-
+    // Fyller ut siste rad slik at alle uker vises korrekt
     while (grid.length % 7 !== 0) grid.push({ key: `n${grid.length}`, muted: true });
 
-    // Marker i dag (kun hvis vi er på inneværende måned)
+    // Marker dagens dato (brukes til visuell markering)
+    // Kilde: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date
     const t = new Date();
-    const isSameMonth = t.getFullYear() === current.getFullYear() && t.getMonth() === current.getMonth();
+    const isSameMonth =
+      t.getFullYear() === current.getFullYear() && t.getMonth() === current.getMonth();
     const todayNum = isSameMonth ? t.getDate() : null;
 
     return { monthLabel: label, daysGrid: grid, todayNum };
-  }, [monthOffset /*, events*/]);
+  }, [monthOffset, events]);
+
+  // Filtrerer alle events som tilhører valgt dato
+  // Bruker Date-objekt for å sammenligne dag, måned og år
+  // Kilde: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date
+  const selectedEvents = useMemo(() => {
+    if (!selected) return [];
+    const base = new Date();
+    const currentMonth = new Date(base.getFullYear(), base.getMonth() + monthOffset, 1);
+    return events.filter((event: EventItem) => {
+      if (!event.date) return false;
+      const d = new Date(event.date);
+      return (
+        d.getFullYear() === currentMonth.getFullYear() &&
+        d.getMonth() === currentMonth.getMonth() &&
+        d.getDate() === selected
+      );
+    });
+  }, [selected, events, monthOffset]);
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header m/ knapper for måned −/+ (med a11y på plass fordi, ja takk) */}
-      {/* Ref: https://reactnative.dev/docs/accessibility */}
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }] }>
+      {/* Header med knapp for å bytte måned */}
+      {/* Kilde: https://docs.expo.dev/guides/icons/ */}
       <View style={styles.header}>
         <TouchableOpacity
-          style={styles.iconBtn}
-          onPress={() => setMonthOffset(o => o - 1)}
+          style={[styles.iconBtn, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
+          onPress={() => setMonthOffset((o: number) => o - 1)}
           accessibilityRole="button"
           accessibilityLabel="Forrige måned"
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          {/* Ionicons via Expo */}
-          {/* Ref: https://docs.expo.dev/guides/icons/ */}
-          <Ionicons name="chevron-back" size={22} color={colors.text} />
+          <Ionicons name="chevron-back" size={22} color={themeColors.text} />
         </TouchableOpacity>
 
-        <Text style={styles.month}>{monthLabel}</Text>
+        <Text style={[styles.month, { color: themeColors.text }]}>{monthLabel}</Text>
 
         <TouchableOpacity
-          style={styles.iconBtn}
-          onPress={() => setMonthOffset(o => o + 1)}
+          style={[styles.iconBtn, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
+          onPress={() => setMonthOffset((o: number) => o - 1)}
           accessibilityRole="button"
           accessibilityLabel="Neste måned"
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Ionicons name="chevron-forward" size={22} color={colors.text} />
+          <Ionicons name="chevron-forward" size={22} color={themeColors.text} />
         </TouchableOpacity>
       </View>
 
-      {/* Ukedager (statisk rad, monospaced-ish layout) */}
+      {/* Viser ukedagene øverst */}
+      {/* Kilde: https://reactnative.dev/docs/text */}
       <View style={styles.weekRow}>
         {WEEKDAYS.map((d, i) => (
-          <Text key={`${d}-${i}`} style={styles.weekday}>
+          <Text key={`${d}-${i}`} style={[styles.weekday, { color: themeColors.muted }]}>
             {d}
           </Text>
         ))}
       </View>
 
-      {/* FlatList fordi den er smooth på lister/grid og resirkulerer views fint. */}
-      {/* Ref: https://reactnative.dev/docs/flatlist */}
-      {/* Ytelsestweaks: https://reactnative.dev/docs/optimizing-flatlist-configuration */}
+      {/* Kalendergrid – bruker FlatList for optimal rendering */}
+      {/* Kilde: https://reactnative.dev/docs/flatlist */}
       <FlatList
         data={daysGrid}
         numColumns={7}
-        keyExtractor={i => i.key}
+        keyExtractor={(i: DayCell) => i.key}
         columnWrapperStyle={styles.gridRow}
         contentContainerStyle={styles.grid}
-        initialNumToRender={21} // 3 rader først for snappier start
-        windowSize={7}          // litt cache for smooth scroll
-        renderItem={({ item }) => {
+        initialNumToRender={21}
+        windowSize={7}
+        renderItem={({ item }: { item: DayCell }) => {
           const isToday = !!item.label && item.label === todayNum;
           const isSelected = !!item.label && item.label === selected;
 
@@ -129,86 +178,117 @@ export default function CalendarScreen() {
               onPress={() => item.label && setSelected(item.label)}
               style={[
                 styles.dayCell,
-                item.muted && styles.dayMuted,
-                isToday && styles.today,
-                isSelected && styles.selected,
+                { backgroundColor: themeColors.card, borderColor: themeColors.border },
+                item.muted && { backgroundColor: themeColors.background, borderColor: 'transparent' },
+                isToday && { borderColor: themeColors.accent, borderWidth: 2 },
+                isSelected && { backgroundColor: themeColors.accent, borderColor: themeColors.accent },
               ]}
               accessibilityRole="button"
               accessibilityLabel={
                 item.label
-                  ? `Dag ${item.label} i ${monthLabel}${isToday ? ', i dag' : ''}`
+                  ? `Dag ${item.label} i ${monthLabel}${isToday ? ", i dag" : ""}`
                   : undefined
               }
             >
               <Text
                 style={[
                   styles.dayText,
-                  item.muted && styles.muted,
+                  { color: themeColors.text },
+                  item.muted && { color: themeColors.muted },
                   isSelected && styles.selectedText,
                 ]}
               >
-                {item.label ?? ''}
+                {item.label ?? ""}
               </Text>
 
-              {/* Liten dot nederst = “det skjer noe den dagen” (kun visuelt i Alpha). */}
+              {/* Viser prikk på dager med registrerte oppgaver */}
+              {/* Kilde: https://firebase.google.com/docs/firestore/query-data/get-data */}
               {item.hasDot && !item.muted && (
-                <View style={[styles.dot, isSelected && styles.dotOnSelected]} />
+                <View style={[styles.dot, { backgroundColor: themeColors.accent }, isSelected && styles.dotOnSelected]} />
               )}
             </TouchableOpacity>
           );
         }}
       />
 
-      {/* Info-kort nederst - bare for å vise selection i Alpha. */}
-      <View style={styles.infoCard}>
-        <Text style={styles.infoTitle}>
-          {selected
-            ? `Valgt: ${selected}. ${monthLabel.split(' ')[0]}`
-            : 'Velg en dag i kalenderen'}
-        </Text>
-        <Text style={styles.infoSub}>(Kun visuelt i Alpha ekte funksjon kommer senere :D )</Text>
+      {/* Info-kort nederst – viser oppgaver for valgt dag */}
+  <View style={[styles.infoCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+        {selected ? (
+          <>
+            <Text style={[styles.infoTitle, { color: themeColors.text }]}>
+              {`Valgt: ${selected}. ${monthLabel.split(" ")[0]}`}
+            </Text>
+            {selectedEvents.length > 0 ? (
+              selectedEvents.map((event: EventItem) => (
+                <Text key={event.id} style={[styles.infoSub, { color: themeColors.muted }]}>
+                  • {event.title} {event.description ? `- ${event.description}` : ""}
+                </Text>
+              ))
+            ) : (
+              <Text style={[styles.infoSub, { color: themeColors.muted }]}>Ingen hendelser denne dagen 🎉</Text>
+            )}
+          </>
+        ) : (
+          <>
+            <Text style={[styles.infoTitle, { color: themeColors.text }]}>Velg en dag i kalenderen</Text>
+            <Text style={[styles.infoSub, { color: themeColors.muted }]}>
+              Prikker viser dager med hendelser fra Firebase
+            </Text>
+          </>
+        )}
       </View>
     </SafeAreaView>
   );
 }
 
-// Litt spacing for grid mellom rader
+// Styles
 const CELL_GAP = 8;
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: 16 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 },
-  iconBtn: { padding: 6, borderRadius: 8, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
-  month: { fontSize: 20, fontWeight: '700', color: colors.text },
-
-  weekRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, marginBottom: 8 },
-  weekday: { flex: 1, textAlign: 'center', fontWeight: '600', color: colors.muted },
-
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+  },
+  iconBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  month: { fontSize: 20, fontWeight: "700", color: colors.text },
+  weekRow: { flexDirection: "row", justifyContent: "space-between", marginVertical: 6 },
+  weekday: { flex: 1, textAlign: "center", fontWeight: "600", color: colors.muted },
   grid: { paddingBottom: 16 },
-  gridRow: { justifyContent: 'space-between', marginBottom: CELL_GAP },
-
+  gridRow: { justifyContent: "space-between", marginBottom: CELL_GAP },
   dayCell: {
     flex: 1,
-    aspectRatio: 1,            // gjør cella kvadratisk uansett skjerm
+    aspectRatio: 1,
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
     marginHorizontal: 2,
   },
-  dayMuted: { backgroundColor: '#fff', borderColor: 'transparent' },
+  dayMuted: { backgroundColor: "#fff", borderColor: "transparent" },
   dayText: { fontSize: 16, color: colors.text },
   muted: { color: colors.muted },
-
-  today: { borderColor: colors.gold, borderWidth: 2 }, // highlight rundt dagens dato
+  today: { borderColor: colors.gold, borderWidth: 2 },
   selected: { backgroundColor: colors.gold, borderColor: colors.gold },
-  selectedText: { color: '#fff', fontWeight: '700' },
-
-  dot: { position: 'absolute', bottom: 6, width: 6, height: 6, borderRadius: 3, backgroundColor: colors.gold },
-  dotOnSelected: { backgroundColor: '#fff' },
-
+  selectedText: { color: "#fff", fontWeight: "700" },
+  dot: {
+    position: "absolute",
+    bottom: 6,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.gold,
+  },
+  dotOnSelected: { backgroundColor: "#fff" },
   infoCard: {
     backgroundColor: colors.goldSoft,
     borderRadius: 12,
@@ -217,6 +297,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     marginBottom: 16,
   },
-  infoTitle: { color: colors.text, fontWeight: '700' },
-  infoSub: { color: colors.muted, marginTop: 2, fontSize: 12 },
+  infoTitle: { color: colors.text, fontWeight: "700" },
+  infoSub: { color: colors.muted, marginTop: 2, fontSize: 13 },
 });
