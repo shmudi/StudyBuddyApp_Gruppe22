@@ -26,6 +26,10 @@ cd StudyBuddyApp_Gruppe22
 ### Avhengigheter:
 ``` bash
 npm install
+```
+
+## Start prosjektet:
+```bash
 npx expo start
 ```
 
