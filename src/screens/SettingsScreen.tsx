@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Image,
   Linking,
+  Platform,
   ScrollView,
   StyleSheet,
   Switch,
@@ -22,6 +23,25 @@ export default function SettingsScreen({ navigation }: { navigation: any }) {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
   const handleLogout = () => {
+    // På web mangler Alert-knapper; bruk confirm eller logg ut direkte
+    if (Platform.OS === "web") {
+      const ok = typeof window !== "undefined" ? window.confirm("Er du sikker på at du vil logge ut?") : true;
+      if (!ok) return;
+      (async () => {
+        setLoggingOut(true);
+        try {
+          await logout();
+        } catch (error) {
+          console.error("Logout-feil:", error);
+          Alert.alert("Kunne ikke logge ut", "Prøv igjen om litt.");
+        } finally {
+          setLoggingOut(false);
+        }
+      })();
+      return;
+    }
+
+    // Native-plattformer: normal Alert med to knapper
     Alert.alert("Logg ut", "Er du sikker på at du vil logge ut?", [
       { text: "Avbryt", style: "cancel" },
       {
@@ -33,6 +53,9 @@ export default function SettingsScreen({ navigation }: { navigation: any }) {
             await logout();
           } catch (error) {
             console.error("Logout-feil:", error);
+            Alert.alert("Kunne ikke logge ut", "Prøv igjen om litt.");
+          } finally {
+            // Stopp spinner hvis skjermen ikke unmountes umiddelbart
             setLoggingOut(false);
           }
         },
