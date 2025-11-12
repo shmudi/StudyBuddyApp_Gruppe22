@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { FlatList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
-import { EventItem, getEventsForMonth } from "../services/events"; // Import updated events service
+import { Task, TaskService } from "../services/tasks"; // byttet fra events til tasks
 import { colors } from "../theme/colors";
 
 // Ukedager — korte etiketter (manuelt satt)
@@ -21,25 +21,20 @@ export default function CalendarScreen() {
   const { colors: themeColors } = useTheme();
   const [monthOffset, setMonthOffset] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
-  const [events, setEvents] = useState<EventItem[]>([]);  // Changed from tasks to events
+  const [tasks, setTasks] = useState<Task[]>([]); // 🔹 endret fra events til tasks
 
-
+  // Henter brukerens oppgaver fra Firestore
   useEffect(() => {
     if (!user) return;
     (async () => {
       try {
-        const base = new Date();
-        const current = new Date(base.getFullYear(), base.getMonth() + monthOffset, 1);
-        const year = current.getFullYear();
-        const month = current.getMonth();
-        
-        const userEvents = await getEventsForMonth(year, month, user.uid);  // Use events service
-        setEvents(userEvents);
+        const userTasks = await TaskService.getUserTasks(user.uid);
+        setTasks(userTasks);
       } catch (error) {
-        // console.warn("Kunne ikke hente hendelser:", error);
+        console.warn("Kunne ikke hente oppgaver:", error);
       }
     })();
-  }, [user, monthOffset]);
+  }, [user]);
 
   // Jeg bruker useMemo for å slippe å regne kalendergrid på hver render
   // Kilde: https://react.dev/reference/react/useMemo
@@ -68,16 +63,16 @@ export default function CalendarScreen() {
     const grid: DayCell[] = [];
     for (let i = 0; i < firstWeekday; i++) grid.push({ key: `p${i}`, muted: true });
 
-    // Finn alle events som har dato i denne måneden
-    const eventsByDay = new Set<number>();
-    events.forEach((event: EventItem) => {
-      if (!event.date) return;
-      const eventDate = new Date(event.date);
+    // Finn alle tasks som har dato i denne måneden
+    const tasksByDay = new Set<number>();
+    tasks.forEach((task: Task) => {
+      if (!task.due) return;
+      const taskDate = new Date(task.due);
       if (
-        eventDate.getFullYear() === current.getFullYear() &&
-        eventDate.getMonth() === current.getMonth()
+        taskDate.getFullYear() === current.getFullYear() &&
+        taskDate.getMonth() === current.getMonth()
       ) {
-        eventsByDay.add(eventDate.getDate());
+        tasksByDay.add(taskDate.getDate());
       }
     });
 
@@ -86,7 +81,7 @@ export default function CalendarScreen() {
       grid.push({
         key: `d${d}`,
         label: d,
-        hasDot: eventsByDay.has(d),
+        hasDot: tasksByDay.has(d),
       });
     }
 
@@ -101,32 +96,34 @@ export default function CalendarScreen() {
     const todayNum = isSameMonth ? t.getDate() : null;
 
     return { monthLabel: label, daysGrid: grid, todayNum };
-  }, [monthOffset, events]);
+  }, [monthOffset, tasks]);
 
-  // Filtrerer events for den valgte datoen (sammenligner dag/måned/år)
-  // Jeg bruker Date-objektet for sikre korrekte sammenligninger.
-  const selectedEvents = useMemo(() => {
+  // 🔹 Filtrerer tasks for den valgte datoen (sammenligner dag/måned/år)
+  const selectedTasks = useMemo(() => {
     if (!selected) return [];
     const base = new Date();
     const currentMonth = new Date(base.getFullYear(), base.getMonth() + monthOffset, 1);
-    return events.filter((event: EventItem) => {
-      if (!event.date) return false;
-      const d = new Date(event.date);
+    return tasks.filter((task: Task) => {
+      if (!task.due) return false;
+      const d = new Date(task.due);
       return (
         d.getFullYear() === currentMonth.getFullYear() &&
         d.getMonth() === currentMonth.getMonth() &&
         d.getDate() === selected
       );
     });
-  }, [selected, events, monthOffset]);
+  }, [selected, tasks, monthOffset]);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }] }>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
       {/* Header med knapp for å bytte måned */}
       {/* Kilde: https://docs.expo.dev/guides/icons/ */}
       <View style={styles.header}>
         <TouchableOpacity
-          style={[styles.iconBtn, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
+          style={[
+            styles.iconBtn,
+            { backgroundColor: themeColors.card, borderColor: themeColors.border },
+          ]}
           onPress={() => setMonthOffset((o: number) => o - 1)}
           accessibilityRole="button"
           accessibilityLabel="Forrige måned"
@@ -137,7 +134,10 @@ export default function CalendarScreen() {
         <Text style={[styles.month, { color: themeColors.text }]}>{monthLabel}</Text>
 
         <TouchableOpacity
-          style={[styles.iconBtn, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
+          style={[
+            styles.iconBtn,
+            { backgroundColor: themeColors.card, borderColor: themeColors.border },
+          ]}
           onPress={() => setMonthOffset((o: number) => o + 1)}
           accessibilityRole="button"
           accessibilityLabel="Neste måned"
@@ -178,9 +178,15 @@ export default function CalendarScreen() {
               style={[
                 styles.dayCell,
                 { backgroundColor: themeColors.card, borderColor: themeColors.border },
-                item.muted && { backgroundColor: themeColors.background, borderColor: 'transparent' },
+                item.muted && {
+                  backgroundColor: themeColors.background,
+                  borderColor: "transparent",
+                },
                 isToday && { borderColor: themeColors.accent, borderWidth: 2 },
-                isSelected && { backgroundColor: themeColors.accent, borderColor: themeColors.accent },
+                isSelected && {
+                  backgroundColor: themeColors.accent,
+                  borderColor: themeColors.accent,
+                },
               ]}
               accessibilityRole="button"
               accessibilityLabel={
@@ -203,7 +209,13 @@ export default function CalendarScreen() {
               {/* Viser prikk på dager med registrerte oppgaver */}
               {/* Kilde: https://firebase.google.com/docs/firestore/query-data/get-data */}
               {item.hasDot && !item.muted && (
-                <View style={[styles.dot, { backgroundColor: themeColors.accent }, isSelected && styles.dotOnSelected]} />
+                <View
+                  style={[
+                    styles.dot,
+                    { backgroundColor: themeColors.accent },
+                    isSelected && styles.dotOnSelected,
+                  ]}
+                />
               )}
             </TouchableOpacity>
           );
@@ -211,27 +223,36 @@ export default function CalendarScreen() {
       />
 
       {/* Info-kort nederst – viser oppgaver for valgt dag */}
-  <View style={[styles.infoCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+      <View
+        style={[
+          styles.infoCard,
+          { backgroundColor: themeColors.card, borderColor: themeColors.border },
+        ]}
+      >
         {selected ? (
           <>
             <Text style={[styles.infoTitle, { color: themeColors.text }]}>
               {`Valgt: ${selected}. ${monthLabel.split(" ")[0]}`}
             </Text>
-            {selectedEvents.length > 0 ? (
-              selectedEvents.map((event: EventItem) => (
-                <Text key={event.id} style={[styles.infoSub, { color: themeColors.muted }]}>
-                  • {event.title} {event.description ? `- ${event.description}` : ""}
+            {selectedTasks.length > 0 ? (
+              selectedTasks.map((task: Task) => (
+                <Text key={task.id} style={[styles.infoSub, { color: themeColors.muted }]}>
+                  • {task.title} {task.course ? `(${task.course})` : ""}
                 </Text>
               ))
             ) : (
-              <Text style={[styles.infoSub, { color: themeColors.muted }]}>Ingen hendelser denne dagen 🎉</Text>
+              <Text style={[styles.infoSub, { color: themeColors.muted }]}>
+                Ingen oppgaver denne dagen 🎉
+              </Text>
             )}
           </>
         ) : (
           <>
-            <Text style={[styles.infoTitle, { color: themeColors.text }]}>Velg en dag i kalenderen</Text>
+            <Text style={[styles.infoTitle, { color: themeColors.text }]}>
+              Velg en dag i kalenderen
+            </Text>
             <Text style={[styles.infoSub, { color: themeColors.muted }]}>
-              Prikker viser dager med hendelser fra Firebase
+              Prikker viser dager med oppgaver fra Firebase
             </Text>
           </>
         )}
