@@ -1,12 +1,12 @@
-import { Ionicons } from "@expo/vector-icons"; 
-import React, { useEffect, useMemo, useState } from "react"; 
-import { FlatList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from "react-native"; 
+import { Ionicons } from "@expo/vector-icons";
+import { useEffect, useMemo, useState } from "react";
+import { FlatList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
+import { EventItem, getEventsForMonth } from "../services/events"; // Import updated events service
 import { colors } from "../theme/colors";
-import { EventItem, getEventsForMonth } from "../services/events";  // Import updated events service
 
-// Ukedager forkortet (manuelt definert)
+// Ukedager — korte etiketter (manuelt satt)
 const WEEKDAYS = ["M", "T", "O", "T", "F", "L", "S"];
 
 type DayCell = {
@@ -41,7 +41,7 @@ export default function CalendarScreen() {
     })();
   }, [user, monthOffset]);
 
-  // useMemo brukes for å optimalisere kalendergrid-beregning
+  // Jeg bruker useMemo for å slippe å regne kalendergrid på hver render
   // Kilde: https://react.dev/reference/react/useMemo
   const { monthLabel, daysGrid, todayNum } = useMemo(() => {
     const base = new Date();
@@ -103,9 +103,8 @@ export default function CalendarScreen() {
     return { monthLabel: label, daysGrid: grid, todayNum };
   }, [monthOffset, events]);
 
-  // Filtrerer alle events som tilhører valgt dato
-  // Bruker Date-objekt for å sammenligne dag, måned og år
-  // Kilde: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date
+  // Filtrerer events for den valgte datoen (sammenligner dag/måned/år)
+  // Jeg bruker Date-objektet for sikre korrekte sammenligninger.
   const selectedEvents = useMemo(() => {
     if (!selected) return [];
     const base = new Date();
@@ -139,7 +138,7 @@ export default function CalendarScreen() {
 
         <TouchableOpacity
           style={[styles.iconBtn, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
-          onPress={() => setMonthOffset((o: number) => o - 1)}
+          onPress={() => setMonthOffset((o: number) => o + 1)}
           accessibilityRole="button"
           accessibilityLabel="Neste måned"
         >

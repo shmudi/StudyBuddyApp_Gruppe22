@@ -1,13 +1,14 @@
 // src/services/events.ts
-// 🔥 Denne filen håndterer henting og lagring av kalenderhendelser fra 'events' collection
+// Her håndteres henting og lagring av kalenderhendelser.
+// Leser fra 'events' (og prøver fallback mot 'tasks' hvis det trengs).
 // Ref: https://firebase.google.com/docs/firestore/query-data/get-data
 
-import { addDoc, collection, getDocs, query, where, Timestamp } from "firebase/firestore";
+import { addDoc, collection, getDocs, query, Timestamp, where } from "firebase/firestore";
 import { db } from "../config/firebase";
 
 /**
- * Representerer en "event" i kalenderen.
- * Bruker den eksisterende "events"-samlingen i Firestore.
+ * En EventItem er det som viser i kalenderen.
+ * Forventer at dokumentene i 'events' har dette formatet.
  */
 export interface EventItem {
   id?: string;
@@ -18,7 +19,8 @@ export interface EventItem {
 }
 
 /**
- * ➕ Opprett en ny "event" i Firestore
+ *  Legger til en ny hendelse i 'events' (brukes evt. hvis jeg vil opprette
+ * hendelser direkte fra kalenderen senere).
  */
 export async function addEvent(event: EventItem) {
   try {
@@ -29,15 +31,16 @@ export async function addEvent(event: EventItem) {
       date: event.date,
       createdAt: Timestamp.now(),
     });
-    // console.log("✅ Ny hendelse lagt til:", event.title);
+    // console.log("Ny hendelse lagt til:", event.title);
   } catch (err) {
-    // console.error("❌ Feil ved lagring av event:", err);
+    // console.error("Feil ved lagring av event:", err);
   }
 }
 
 /**
- * 📅 Hent alle events for en gitt måned
- * Bruker Firestore-query med "where" på feltet "date"
+ * enter alle hendelser for en bestemt måned.
+ * Bygger en prefiks-query på 'YYYY-MM' og returnerer alle treff.
+ * Hvis queries feiler prøver den fallback som leser alt og filtrerer lokalt.
  */
 export async function getEventsForMonth(year: number, month: number, userID?: string) {
   const monthNum = month + 1;
@@ -77,10 +80,10 @@ export async function getEventsForMonth(year: number, month: number, userID?: st
       });
     });
 
-    // console.log(`📅 Hentet ${events.length} hendelser fra ${prefix}`);
+    // console.log(`Hentet ${events.length} hendelser fra ${prefix}`);
     return events;
   } catch (error) {
-    // console.error("❌ Feil ved henting av events:", error);
+    // console.error("Feil ved henting av events:", error);
     // Fallback hvis compound query feiler (mangler indeks)
     try {
       const allEvents = await getDocs(collection(db, "events"));
@@ -104,11 +107,43 @@ export async function getEventsForMonth(year: number, month: number, userID?: st
         }
       });
       
-      // console.log(`📅 Fallback: Hentet ${events.length} hendelser fra ${prefix}`);
+      // console.log(`Fallback: Hentet ${events.length} hendelser fra ${prefix}`);
       return events;
     } catch (fallbackError) {
-      // console.error("❌ Fallback også feilet:", fallbackError);
-      return [];
+      // console.error("" Fallback også feilet:", fallbackError);
+      // Siste fallback: prøv å lese fra 'tasks' collection hvis den eksisterer
+      try {
+        const tasksQ = userID
+          ? query(
+              collection(db, "tasks"),
+              where("userId", "==", userID),
+              where("due", ">=", `${prefix}-01`),
+              where("due", "<=", `${prefix}-31`)
+            )
+          : query(
+              collection(db, "tasks"),
+              where("due", ">=", `${prefix}-01`),
+              where("due", "<=", `${prefix}-31`)
+            );
+
+        const snap = await getDocs(tasksQ);
+        const taskEvents: EventItem[] = [];
+        snap.forEach((doc: any) => {
+          const data = doc.data();
+          taskEvents.push({
+            id: doc.id,
+            userID: data.userId || data.userID || "",
+            title: data.title || "Uten tittel",
+            description: data.description || "",
+            date: data.due,
+          });
+        });
+
+        return taskEvents;
+      } catch (fallbackError2) {
+        // console.error("Tasks-fallback også feilet:", fallbackError2);
+        return [];
+      }
     }
   }
 }

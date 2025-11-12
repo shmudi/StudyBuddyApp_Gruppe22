@@ -1,18 +1,19 @@
 import { FirebaseError } from 'firebase/app';
 import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  getDocs,
-  orderBy,
-  query,
-  Timestamp,
-  updateDoc,
-  where
+    addDoc,
+    collection,
+    deleteDoc,
+    doc,
+    getDocs,
+    orderBy,
+    query,
+    Timestamp,
+    updateDoc,
+    where
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
+// Task-typen jeg bruker i appen
 export interface Task {
   id: string;
   title: string;
@@ -24,6 +25,7 @@ export interface Task {
   updatedAt: Date;
 }
 
+// Data som trengs for å opprette en ny oppgave
 export interface CreateTaskData {
   title: string;
   course?: string;
@@ -32,7 +34,7 @@ export interface CreateTaskData {
 }
 
 export class TaskService {
-  // Hent alle oppgaver for en bruker
+  // Henter alle oppgavene for en bruker (jeg prøver først med orderBy)
   static async getUserTasks(userId: string): Promise<Task[]> {
     try {
       const tasksRef = collection(db, 'tasks');
@@ -88,7 +90,7 @@ export class TaskService {
     }
   }
 
-  // Opprett ny oppgave
+  // Lager en ny oppgave i Firestore
   static async createTask(userId: string, taskData: CreateTaskData): Promise<string> {
     try {
       const now = Timestamp.now();
@@ -107,7 +109,7 @@ export class TaskService {
     }
   }
 
-  // Oppdater oppgave
+  // Oppdaterer felt på en eksisterende oppgave
   static async updateTask(taskId: string, updates: Partial<CreateTaskData>): Promise<void> {
     try {
       const taskRef = doc(db, 'tasks', taskId);
@@ -121,7 +123,7 @@ export class TaskService {
     }
   }
 
-  // Toggle oppgave som ferdig/ikke ferdig
+  // Slår oppgave ferdig/ikke ferdig
   static async toggleTask(taskId: string, done: boolean): Promise<void> {
     try {
       const taskRef = doc(db, 'tasks', taskId);
@@ -135,7 +137,7 @@ export class TaskService {
     }
   }
 
-  // Slett oppgave
+  // Sletter en oppgave
   static async deleteTask(taskId: string): Promise<void> {
     try {
       await deleteDoc(doc(db, 'tasks', taskId));
