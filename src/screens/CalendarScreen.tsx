@@ -1,9 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { useEffect, useMemo, useState } from "react";
 import { FlatList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { db } from "../config/firebase";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
-import { Task, TaskService } from "../services/tasks"; // byttet fra events til tasks
+import { Task } from "../services/tasks"; // byttet fra events til tasks
 import { colors } from "../theme/colors";
 
 // Ukedager — korte etiketter (manuelt satt)
@@ -23,17 +25,33 @@ export default function CalendarScreen() {
   const [selected, setSelected] = useState<number | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]); // 🔹 endret fra events til tasks
 
-  // Henter brukerens oppgaver fra Firestore
+  // Henter brukerens oppgaver fra Firestore (real-time listener)
   useEffect(() => {
     if (!user) return;
-    (async () => {
-      try {
-        const userTasks = await TaskService.getUserTasks(user.uid);
-        setTasks(userTasks);
-      } catch (error) {
-        console.warn("Kunne ikke hente oppgaver:", error);
+
+    // Lytter i sanntid på alle oppgaver for denne brukeren.
+    // Når snapshot endres oppdateres `tasks` og kalenderen rendres på nytt uten refresh.
+    const tasksRef = collection(db, "tasks");
+    const q = query(tasksRef, where("userId", "==", user.uid));
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const newTasks: Task[] = [];
+        snap.forEach((docSnap) => {
+          const data: any = docSnap.data();
+          const createdAt = data?.createdAt?.toDate ? data.createdAt.toDate() : new Date(0);
+          const updatedAt = data?.updatedAt?.toDate ? data.updatedAt.toDate() : createdAt || new Date(0);
+          const due = data?.due?.toDate ? data.due.toDate().toISOString().split("T")[0] : data.due || "";
+          newTasks.push({ id: docSnap.id, ...data, due, createdAt, updatedAt } as Task);
+        });
+        setTasks(newTasks);
+      },
+      (error) => {
+        console.warn("onSnapshot feil for tasks:", error);
       }
-    })();
+    );
+
+    return () => unsub();
   }, [user]);
 
   // Jeg bruker useMemo for å slippe å regne kalendergrid på hver render
