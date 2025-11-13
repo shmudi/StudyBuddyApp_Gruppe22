@@ -1,15 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Alert,
-  FlatList,
-  Modal,
-  Platform,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    FlatList,
+    Modal,
+    Platform,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../contexts/AuthContext";
@@ -22,7 +22,7 @@ if (Platform.OS !== "web") {
   DateTimePicker = require("@react-native-community/datetimepicker").default;
 }
 
-// Fallback sample data hvis Firebase ikke fungerer
+// Litt sample-data jeg bruker hvis Firebase ikke svarer
 const SAMPLE_TASKS: Task[] = [
   {
     id: "1",
@@ -52,7 +52,7 @@ export default function TasksScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
-  // Hent oppgaver fra Firestore
+  // Henter oppgaver fra Firestore (eller bruker sample hvis ikke logget inn)
   const loadTasks = useCallback(async () => {
     if (!user) {
       setTasks(SAMPLE_TASKS);
@@ -77,14 +77,14 @@ export default function TasksScreen() {
     loadTasks();
   }, [loadTasks]);
 
-  // Teller hvor mange som er fullført
+  // Teller hvor mange oppgaver som er fullført
   const { completed, total } = useMemo(() => {
     const total = tasks.length || 1;
     const completed = tasks.filter((t) => t.done).length;
     return { completed, total };
   }, [tasks]);
 
-  // Oppdater status (ferdig / ikke ferdig)
+  // Oppdaterer ferdig-status (jeg oppdaterer både i UI og i Firestore)
   const toggleTask = async (id: string, currentDone: boolean) => {
     if (useLocalData) {
       setTasks((prev) =>
@@ -103,7 +103,7 @@ export default function TasksScreen() {
     }
   };
 
-  // Slett oppgave
+  // Sletter oppgave
   const handleDelete = async (id: string) => {
     if (useLocalData) {
       setTasks((prev) => prev.filter((t) => t.id !== id));
@@ -119,7 +119,7 @@ export default function TasksScreen() {
     }
   };
 
-  // Lagre ny oppgave
+  // Lagrer ny oppgave (validerer tittel, skriver til Firestore)
   const handleAddTask = async () => {
     if (!newTitle.trim()) {
       Alert.alert("Feil", "Oppgaven må ha en tittel");
