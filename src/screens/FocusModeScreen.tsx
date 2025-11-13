@@ -7,10 +7,23 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AppState, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { AnimatedCircularProgress } from "react-native-circular-progress";
 
+// Modus for timeren
 type Mode = "focus" | "short" | "long";
 
+// Dine farger
 const YELLOW = "#FFD54F";
 const DARK = "#111";
+
+/** Fargepalett */
+const COLORS = {
+  yellow: "#FFD54F",
+  yellowSoft: "#FFE680",
+  dark: "#111",
+  text: "#222",
+  white: "#FFF",
+  subtle: "rgba(0,0,0,0.08)",
+  accent: "#FF6F00",
+};
 
 // Standardverdier for timeren
 const CONFIG = {
@@ -25,8 +38,10 @@ export default function FocusModeScreen() {
   const [mode, setMode] = useState<Mode>("focus");   // Nåværende modus
   const [running, setRunning] = useState(false);     // Om timeren går
   const [completedCycles, setCompletedCycles] = useState(0); // Antall fullførte fokusøkter
+  const [tick, setTick] = useState(0);               // For å trigge re-render hver ~300 ms
 
-  const [tick, setTick] = useState(0); // For å trigge re-render hver ~300 ms når timeren går
+  /** Bruker-valgt fokuslengde */
+  const [customFocusLength, setCustomFocusLength] = useState(25); // 25 min som standard
 
   // Referanser for start- og sluttidspunkt
   const startTimeRef = useRef<number | null>(null);
@@ -34,7 +49,7 @@ export default function FocusModeScreen() {
 
   // Henter varighet i sekunder basert på modus
   const getDuration = (m: Mode) => {
-    if (m === "focus") return CONFIG.focusMin * 60;
+    if (m === "focus") return customFocusLength * 60; // bruker sitt valg
     if (m === "short") return CONFIG.shortBreakMin * 60;
     return CONFIG.longBreakMin * 60;
   };
@@ -104,23 +119,23 @@ export default function FocusModeScreen() {
   useEffect(() => {
     if (!running) return;
 
-    const id = setInterval(() => {          // FIX: legg inn setInterval og få et id
-      setTick((t) => t + 1);                 // driver UI-tikk
+    const id = setInterval(() => {    
+      setTick((t) => t + 1);
       if (endTimeRef.current && Date.now() >= endTimeRef.current) {
-        clearInterval(id);                   // FIX: clear riktig id
+        clearInterval(id);
         setRunning(false);
         goToNextMode();
       }
-    }, 300); // 300 ms
+    }, 300);
 
-    return () => clearInterval(id);   
+    return () => clearInterval(id);
   }, [running, mode, completedCycles]);
 
   // Oppdaterer når appen går fra bakgrunn til forgrunn
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
       if (state === "active") {
-        setTick((t) => t + 1); // henter igjen korrekt resttid ved retur til appen
+        setTick((t) => t + 1);
       }
     });
     return () => sub.remove();
@@ -135,19 +150,46 @@ export default function FocusModeScreen() {
 
   // Tittel basert på modus
   const title =
-    mode === "focus" ? "FOKUSMODUS" : mode === "short" ? "KORT PAUSE" : "LANG PAUSE";
+    mode === "focus" ? "FOKUMODUS" : mode === "short" ? "KORT PAUSE" : "LANG PAUSE";
 
   return (
     <View style={styles.container}>
+      {/* Tittel */}
       <Text style={styles.title}>{title}</Text>
 
+      {/* Økt-lengde valg (kun synlig når timer ikke kjører) */}
+      {!running && mode === "focus" && (
+        <View style={styles.selectorRow}>
+          {[25, 30, 45].map((min) => (
+            <TouchableOpacity
+              key={min}
+              onPress={() => setCustomFocusLength(min)}
+              style={[
+                styles.optionButton,
+                customFocusLength === min && styles.optionButtonActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.optionText,
+                  customFocusLength === min && styles.optionTextActive,
+                ]}
+              >
+                {min} min
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {/* Sirkel-progress */}
       <AnimatedCircularProgress
-        size={260}
+        size={270}
         width={14}
         rotation={0}
-        backgroundWidth={14}
+        backgroundWidth={12}
         tintColor={DARK}
-        backgroundColor="rgba(0,0,0,0.08)"
+        backgroundColor="rgba(0,0,0,0.05)"
         fill={fill}
         style={styles.progress}
       >
@@ -155,18 +197,28 @@ export default function FocusModeScreen() {
           <View style={styles.center}>
             <Text style={styles.time}>{formatTime()}</Text>
             <Text style={styles.sub}>
-              {mode === "focus" ? "hold fokus 💪" : "ta en liten pause 😌"}
+              {mode === "focus" ? "Hold fokus 💪" : "Ta en liten pause 😌"}
             </Text>
           </View>
         )}
       </AnimatedCircularProgress>
 
-      <TouchableOpacity style={styles.mainButton} onPress={handleStartPause}>
-        <Text style={styles.mainButtonText}>{running ? "Pause" : "Start"}</Text>
+      {/* Start/Pause-knapp */}
+      <TouchableOpacity
+        style={[styles.mainButton, running && styles.pauseButton]}
+        onPress={handleStartPause}
+      >
+        <Text style={[styles.mainButtonText, running && styles.pauseButtonText]}>
+          {running ? "Pause" : "Start"}
+        </Text>
       </TouchableOpacity>
 
+      {/* Sekundærknapper */}
       <View style={styles.row}>
-        <TouchableOpacity style={styles.secondaryButton} onPress={() => startNewSession("focus")}>
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={() => startNewSession("focus")}
+        >
           <Text style={styles.secondaryText}>Ny økt</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.secondaryButton} onPress={resetTimer}>
@@ -179,17 +231,101 @@ export default function FocusModeScreen() {
   );
 }
 
+
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: YELLOW, alignItems: "center", justifyContent: "center", paddingHorizontal: 20 },
-  title: { fontSize: 22, fontWeight: "800", letterSpacing: 0.5, marginBottom: 18 },
-  progress: { marginBottom: 24 },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.yellow,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: "900",
+    letterSpacing: 0.8,
+    color: COLORS.dark,
+    marginBottom: 14,
+  },
+
+  // ⭐ Ny: valgknapper
+  selectorRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 18,
+  },
+  optionButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.3)",
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.05)",
+  },
+  optionButtonActive: {
+    backgroundColor: COLORS.white,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  optionText: {
+    fontWeight: "600",
+    color: COLORS.dark,
+  },
+  optionTextActive: {
+    fontWeight: "800",
+    color: COLORS.accent,
+  },
+
+  progress: { marginBottom: 28 },
   center: { alignItems: "center", justifyContent: "center" },
-  time: { fontSize: 80, fontWeight: "800", color: DARK },
-  sub: { marginTop: 6, opacity: 0.7, fontSize: 16 },
-  mainButton: { backgroundColor: "#fff", paddingVertical: 14, paddingHorizontal: 32, borderRadius: 16, marginTop: 6, elevation: 2 },
-  mainButtonText: { fontSize: 18, fontWeight: "800" },
-  row: { flexDirection: "row", gap: 12, marginTop: 12 },
-  secondaryButton: { paddingVertical: 10, paddingHorizontal: 16, backgroundColor: "rgba(0,0,0,0.08)", borderRadius: 12 },
-  secondaryText: { fontWeight: "600" },
-  meta: { marginTop: 12, opacity: 0.7 },
+  time: { fontSize: 78, fontWeight: "900", color: COLORS.dark },
+  sub: { marginTop: 8, opacity: 0.75, fontSize: 16, fontWeight: "500" },
+
+  mainButton: {
+    backgroundColor: COLORS.dark,
+    paddingVertical: 16,
+    paddingHorizontal: 48,
+    borderRadius: 20,
+    marginTop: 10,
+    elevation: 3,
+  },
+  mainButtonText: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: COLORS.white,
+  },
+  pauseButton: {
+    backgroundColor: COLORS.white,
+    borderWidth: 2,
+    borderColor: COLORS.dark,
+  },
+  pauseButtonText: {
+    color: COLORS.dark,
+  },
+
+  row: {
+    flexDirection: "row",
+    gap: 14,
+    marginTop: 16,
+  },
+  secondaryButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    backgroundColor: "rgba(255,255,255,0.5)",
+    borderRadius: 14,
+  },
+  secondaryText: {
+    fontWeight: "700",
+    color: COLORS.dark,
+  },
+
+  meta: {
+    marginTop: 16,
+    opacity: 0.6,
+    fontSize: 14,
+    fontWeight: "500",
+  },
 });
