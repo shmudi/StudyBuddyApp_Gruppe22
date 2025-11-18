@@ -1,4 +1,4 @@
-# StudyBuddyApp : Mpbilprogrammering ITF21019
+# StudyBuddyApp : Mobilprogrammering ITF21019
 ### Gruppe 22: Mikkel & Shahd
 
 StudyBuddy er en mobilapplikasjon laget med **React Native (Expo)** og **Firebase**, utviklet for å hjelpe studenter med å strukturere studietiden sin.  
